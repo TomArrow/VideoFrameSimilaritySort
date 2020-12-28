@@ -65,15 +65,17 @@ namespace VideoFrameSimilaritySort
                 Console.WriteLine(loadedVideo[0].pixelFormat);
 
                 int currentFrame = 0;
+
+                double[] frameDifferences = new double[frameCount];
+
                 for (int currentIndex = 0; currentIndex<frameCount;currentIndex++) {// not to confuse with current frame. We're just tracking our progress here.
 
-                    double smallestDifference = double.PositiveInfinity;
-                    int smallestDifferenceFrame = -1;
-
+                    double smallestDifferenceImpreciseOpt = double.PositiveInfinity;
 
                     // Go through all frames, comparing them to the current frame
                     for (int compareFrame = 0; compareFrame < frameCount; compareFrame++)
                     {
+                        frameDifferences[compareFrame] = double.PositiveInfinity;
                         if (compareFrame == currentFrame) continue; // No need to compare to itself.
                         if (alreadyUsedFrames[compareFrame] == true) continue; // No need to go through already used frames
 
@@ -89,14 +91,12 @@ namespace VideoFrameSimilaritySort
                                 thisFrameDifference += Math.Abs(loadedVideo[currentFrame].imageData[baseIndex + 1] - loadedVideo[compareFrame].imageData[baseIndex + 1]);
                                 thisFrameDifference += Math.Abs(loadedVideo[currentFrame].imageData[baseIndex + 2] - loadedVideo[compareFrame].imageData[baseIndex + 2]);
                             }
-                            if (thisFrameDifference / pixelCountX3 > smallestDifference) break; // fast skip for very different frames
+                            if (thisFrameDifference / pixelCountX3 > smallestDifferenceImpreciseOpt) break; // fast skip for very different frames. Since this is multithreaded, this might not always be correct in the sense of always having the right number in smallestDifference, but might work as optimization.
                         }
-                        thisFrameDifference /= pixelCountX3;
-
-                        if(thisFrameDifference < smallestDifference)
+                        frameDifferences[compareFrame] = thisFrameDifference / pixelCountX3;
+                        if (frameDifferences[compareFrame] < smallestDifferenceImpreciseOpt)
                         {
-                            smallestDifference = thisFrameDifference;
-                            smallestDifferenceFrame = compareFrame;
+                            smallestDifferenceImpreciseOpt = frameDifferences[compareFrame];
                         }
                         /*
                         if (compareFrame % 1000 == 0)
@@ -104,6 +104,22 @@ namespace VideoFrameSimilaritySort
                             progress.Report("Processing: " + currentIndex + "/" + frameCount + " ordered frames. Current frame is "+currentFrame+" comparing to "+compareFrame);
                         }*/
                     }
+
+                    double smallestDifference = double.PositiveInfinity;
+                    int smallestDifferenceFrame = -1;
+
+                    for (int compareFrame = 0; compareFrame < frameCount; compareFrame++)
+                    {
+                        if (frameDifferences[compareFrame] < smallestDifference)
+                        {
+                            smallestDifference = frameDifferences[compareFrame];
+                            smallestDifferenceFrame = compareFrame;
+                        }
+                    }
+
+
+                        
+
                     progress.Report("Processing: " + currentIndex + "/" + frameCount + " ordered frames. Current frame is " + currentFrame);
 
                     if(smallestDifferenceFrame != -1)
