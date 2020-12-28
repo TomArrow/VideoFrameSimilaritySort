@@ -11,9 +11,20 @@
             <ColumnDefinition Width="*"></ColumnDefinition>
             <ColumnDefinition Width="300"></ColumnDefinition>
         </Grid.ColumnDefinitions>
-        <StackPanel Grid.Column="0"></StackPanel>
-        <StackPanel Grid.Column="1">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"></RowDefinition>
+            <RowDefinition Height="20"></RowDefinition>
+        </Grid.RowDefinitions>
+        <StackPanel Grid.Column="0" Grid.Row="0"></StackPanel>
+        <StackPanel Grid.Column="1" Grid.Row="0">
             <Button x:Name="loadVideo_button" Click="loadVideo_button_Click">Load video file...</Button>
+            <Button x:Name="processVideo_button" Click="processVideo_button_Click" IsEnabled="False">Process video</Button>
+            <Button x:Name="saveSortedVideo_button" Click="saveSortedVideo_button_Click" IsEnabled="False">Save processed video</Button>
+            <Button x:Name="saveSortedFrameList_button" Click="saveSortedFrameList_button_Click" IsEnabled="False">Save sorted frame list</Button>
+        </StackPanel>
+        <StackPanel Grid.Column="0" Grid.Row="1" Grid.ColumnSpan="2">
+
+            <TextBlock x:Name="status_txt">Status.</TextBlock>
         </StackPanel>
     </Grid>
 </Window>

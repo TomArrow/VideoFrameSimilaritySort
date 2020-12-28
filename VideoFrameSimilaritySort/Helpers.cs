@@ -9,7 +9,7 @@ using System.IO;
 using System.Runtime.CompilerServices;
 using System.Numerics;
 
-namespace ColorMatch3D
+namespace VideoFrameSimilaritySort
 {
     static class Helpers
     {
