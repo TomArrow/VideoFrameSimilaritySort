@@ -14,6 +14,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using Accord.Audio;
 using Accord.Video.FFMPEG;
 using Microsoft.Win32;
 
@@ -73,6 +74,38 @@ namespace VideoFrameSimilaritySort
                     double smallestDifferenceImpreciseOpt = double.PositiveInfinity;
 
                     // Go through all frames, comparing them to the current frame
+                    Parallel.For(0, frameCount, (compareFrame) =>
+                    {
+                        frameDifferences[compareFrame] = double.PositiveInfinity;
+                        if (compareFrame == currentFrame) return; // No need to compare to itself.
+                        if (alreadyUsedFrames[compareFrame] == true) return; // No need to go through already used frames
+
+                        double thisFrameDifference = 0;
+                        // Calculate difference
+                        int baseIndex;
+                        for (int y = 0; y < height; y++)
+                        {
+                            for (int x = 0; x < width; x++)
+                            {
+                                baseIndex = stride * y + x * channelMultiplier;
+                                thisFrameDifference += Math.Abs(loadedVideo[currentFrame].imageData[baseIndex] - loadedVideo[compareFrame].imageData[baseIndex]);
+                                thisFrameDifference += Math.Abs(loadedVideo[currentFrame].imageData[baseIndex + 1] - loadedVideo[compareFrame].imageData[baseIndex + 1]);
+                                thisFrameDifference += Math.Abs(loadedVideo[currentFrame].imageData[baseIndex + 2] - loadedVideo[compareFrame].imageData[baseIndex + 2]);
+                            }
+                            if (thisFrameDifference / pixelCountX3 > smallestDifferenceImpreciseOpt) break; // fast skip for very different frames. Since this is multithreaded, this might not always be correct in the sense of always having the right number in smallestDifference, but might work as optimization.
+                        }
+                        frameDifferences[compareFrame] = thisFrameDifference / pixelCountX3;
+                        if (frameDifferences[compareFrame] < smallestDifferenceImpreciseOpt)
+                        {
+                            smallestDifferenceImpreciseOpt = frameDifferences[compareFrame];
+                        }
+                        /*
+                        if (compareFrame % 1000 == 0)
+                        {
+                            progress.Report("Processing: " + currentIndex + "/" + frameCount + " ordered frames. Current frame is "+currentFrame+" comparing to "+compareFrame);
+                        }*/
+                    });
+                    /*
                     for (int compareFrame = 0; compareFrame < frameCount; compareFrame++)
                     {
                         frameDifferences[compareFrame] = double.PositiveInfinity;
@@ -98,12 +131,7 @@ namespace VideoFrameSimilaritySort
                         {
                             smallestDifferenceImpreciseOpt = frameDifferences[compareFrame];
                         }
-                        /*
-                        if (compareFrame % 1000 == 0)
-                        {
-                            progress.Report("Processing: " + currentIndex + "/" + frameCount + " ordered frames. Current frame is "+currentFrame+" comparing to "+compareFrame);
-                        }*/
-                    }
+                    }*/
 
                     double smallestDifference = double.PositiveInfinity;
                     int smallestDifferenceFrame = -1;
@@ -173,8 +201,10 @@ namespace VideoFrameSimilaritySort
                     loadedVideo = new ByteImage[frameCount];
                     frameRate = reader.FrameRate;
 
+
                     while (true)
                     {
+
                         using (Bitmap videoFrame = reader.ReadVideoFrame())
                         {
                             if (videoFrame == null)
@@ -210,6 +240,8 @@ namespace VideoFrameSimilaritySort
             saveSortedFrameList_button.IsEnabled = false;
 
         }
+
+        
 
         private async Task saveVideoAsync(string path)
         {
@@ -267,6 +299,25 @@ namespace VideoFrameSimilaritySort
 
         }
 
+
+
+        private async Task processAudioAsync(string path,string outputPath)
+        {
+            var progressHandler = new Progress<string>(value =>
+            {
+                status_txt.Text = value;
+            });
+            var progress = progressHandler as IProgress<string>;
+            await Task.Run(() =>
+            {
+                
+                
+
+            });
+            status_txt.Text = "Completed.";
+
+        }
+
         private void loadVideo_button_Click(object sender, RoutedEventArgs e)
         {
             OpenFileDialog ofd = new OpenFileDialog();
@@ -306,6 +357,24 @@ namespace VideoFrameSimilaritySort
             {
 
                 File.WriteAllText(sfd.FileName, string.Join("\n", orderedVideo));
+
+            }
+        }
+
+        private void processWAVFile_button_Click(object sender, RoutedEventArgs e)
+        {
+            OpenFileDialog ofd = new OpenFileDialog();
+            if (ofd.ShowDialog() == true)
+            {
+
+                SaveFileDialog sfd = new SaveFileDialog();
+                if (sfd.ShowDialog() == true)
+                {
+
+
+                    processAudioAsync(ofd.FileName,sfd.FileName);
+
+                }
 
             }
         }
