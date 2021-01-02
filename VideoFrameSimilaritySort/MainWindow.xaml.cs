@@ -14,7 +14,6 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
-using Accord.Audio;
 using Accord.Video.FFMPEG;
 using Microsoft.Win32;
 
@@ -294,8 +293,8 @@ namespace VideoFrameSimilaritySort
             status_txt.Text = "Completed.";
             videoIsLoaded = true;
             processVideo_button.IsEnabled = true;
-            saveSortedVideo_button.IsEnabled = false;
-            saveSortedFrameList_button.IsEnabled = false;
+            saveSortedVideo_button.IsEnabled = true;
+            saveSortedFrameList_button.IsEnabled = true;
 
         }
 
