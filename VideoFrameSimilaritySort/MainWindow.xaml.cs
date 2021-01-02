@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
@@ -80,6 +81,10 @@ namespace VideoFrameSimilaritySort
                         if (alreadyUsedFrames[compareFrame] == true) return; // No need to go through already used frames
 
                         double thisFrameDifference = 0;
+                        Vector3 thisFrameRGBDifference = new Vector3() { X=0, Y=0, Z=0 };
+                        Vector3 currentFramePixel = new Vector3() { X=0, Y=0, Z=0 };
+                        Vector3 compareFramePixel = new Vector3() { X=0, Y=0, Z=0 };
+                        
                         // Calculate difference
                         int baseIndex;
                         for (int y = 0; y < height; y++)
@@ -87,12 +92,22 @@ namespace VideoFrameSimilaritySort
                             for (int x = 0; x < width; x++)
                             {
                                 baseIndex = stride * y + x * channelMultiplier;
-                                thisFrameDifference += Math.Abs(loadedVideo[currentFrame].imageData[baseIndex] - loadedVideo[compareFrame].imageData[baseIndex]);
+                                currentFramePixel.X = loadedVideo[currentFrame].imageData[baseIndex];
+                                currentFramePixel.Y = loadedVideo[currentFrame].imageData[baseIndex+1];
+                                currentFramePixel.Z = loadedVideo[currentFrame].imageData[baseIndex+2];
+                                compareFramePixel.X = loadedVideo[compareFrame].imageData[baseIndex];
+                                compareFramePixel.Y = loadedVideo[compareFrame].imageData[baseIndex+1];
+                                compareFramePixel.Z = loadedVideo[compareFrame].imageData[baseIndex+2];
+                                thisFrameRGBDifference += Vector3.Abs(currentFramePixel-compareFramePixel);
+                                /*thisFrameDifference += Math.Abs(loadedVideo[currentFrame].imageData[baseIndex] - loadedVideo[compareFrame].imageData[baseIndex]);
                                 thisFrameDifference += Math.Abs(loadedVideo[currentFrame].imageData[baseIndex + 1] - loadedVideo[compareFrame].imageData[baseIndex + 1]);
-                                thisFrameDifference += Math.Abs(loadedVideo[currentFrame].imageData[baseIndex + 2] - loadedVideo[compareFrame].imageData[baseIndex + 2]);
+                                thisFrameDifference += Math.Abs(loadedVideo[currentFrame].imageData[baseIndex + 2] - loadedVideo[compareFrame].imageData[baseIndex + 2]);*/
                             }
+                            //if (thisFrameDifference / pixelCountX3 > smallestDifferenceImpreciseOpt) break; // fast skip for very different frames. Since this is multithreaded, this might not always be correct in the sense of always having the right number in smallestDifference, but might work as optimization.
+                            thisFrameDifference = thisFrameRGBDifference.X + thisFrameRGBDifference.Y + thisFrameRGBDifference.Z;
                             if (thisFrameDifference / pixelCountX3 > smallestDifferenceImpreciseOpt) break; // fast skip for very different frames. Since this is multithreaded, this might not always be correct in the sense of always having the right number in smallestDifference, but might work as optimization.
                         }
+                        thisFrameDifference = thisFrameRGBDifference.X + thisFrameRGBDifference.Y + thisFrameRGBDifference.Z;
                         frameDifferences[compareFrame] = thisFrameDifference / pixelCountX3;
                         if (frameDifferences[compareFrame] < smallestDifferenceImpreciseOpt)
                         {
