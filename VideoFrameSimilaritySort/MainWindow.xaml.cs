@@ -33,7 +33,7 @@ namespace VideoFrameSimilaritySort
             //int[,] a = new int[1811939328, 2];
         }
 
-        ByteImage[] loadedVideo;
+        LinearAccessByteImage[] loadedVideo;
         bool videoIsLoaded = false;
         int[] orderedVideo;
         bool videoIsOrdered = false;
@@ -251,7 +251,7 @@ namespace VideoFrameSimilaritySort
 
                     int currentFrame = 0;
 
-                    loadedVideo = new ByteImage[frameCount];
+                    loadedVideo = new LinearAccessByteImage[frameCount];
                     frameRate = reader.FrameRate;
 
 
@@ -263,7 +263,7 @@ namespace VideoFrameSimilaritySort
                             if (videoFrame == null)
                                 break;
 
-                            loadedVideo[currentFrame] = Helpers.BitmapToByteArray(videoFrame);
+                            loadedVideo[currentFrame] = Helpers.BitmapToLinearAccessByteArray(videoFrame);
 
                             if(currentFrame % 1000 == 0)
                             {
@@ -283,7 +283,7 @@ namespace VideoFrameSimilaritySort
                     if(currentFrame < frameCount)
                     {
                         tooFewFramesDelivered = (int)frameCount-currentFrame;
-                        Array.Resize<ByteImage>(ref loadedVideo, currentFrame );
+                        Array.Resize<LinearAccessByteImage>(ref loadedVideo, currentFrame );
                     }
 
                 }
@@ -510,6 +510,8 @@ namespace VideoFrameSimilaritySort
 
         private async Task audio2spectrum_saveVideoAsync(string path)
         {
+
+
             var progressHandler = new Progress<string>(value =>
             {
                 status_txt.Text = value;
@@ -603,5 +605,15 @@ namespace VideoFrameSimilaritySort
 
         }
 
+        private void vectorSizeCheck_button_Click(object sender, RoutedEventArgs e)
+        {
+            MessageBox.Show("byte: " +Vector<byte>.Count+
+                ", sbyte: " +Vector<sbyte>.Count+
+                ", int:"+ Vector<int>.Count + 
+                ", float:" + Vector<float>.Count + 
+                ", double:" + Vector<double>.Count + 
+                ", long:" + Vector<long>.Count + 
+                ", short:" + Vector<short>.Count);
+        }
     }
 }

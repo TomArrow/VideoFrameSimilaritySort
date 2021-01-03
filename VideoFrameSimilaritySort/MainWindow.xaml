@@ -38,6 +38,11 @@
                     <TextBlock TextWrapping="Wrap">You must first have a video loaded that this audio belongs to, so that the algorithm knows the framerate for the output</TextBlock>
                 </StackPanel>
             </GroupBox>
+            <GroupBox Header="Debugging stuff">
+                <StackPanel>
+                    <Button x:Name="vectorSizeCheck_button" Click="vectorSizeCheck_button_Click">Vector size check</Button>
+                </StackPanel>
+            </GroupBox>
         </StackPanel>
         <StackPanel Grid.Column="0" Grid.Row="1" Grid.ColumnSpan="2">
 

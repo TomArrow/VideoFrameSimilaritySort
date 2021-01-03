@@ -65,6 +65,30 @@ namespace VideoFrameSimilaritySort
 
             return new ByteImage(rgbValues, stride, bmp.Width, bmp.Height, bmp.PixelFormat);
         }
+        public static LinearAccessByteImage BitmapToLinearAccessByteArray(Bitmap bmp)
+        {
+
+            // Lock the bitmap's bits.  
+            Rectangle rect = new Rectangle(0, 0, bmp.Width, bmp.Height);
+            System.Drawing.Imaging.BitmapData bmpData =
+                bmp.LockBits(rect, System.Drawing.Imaging.ImageLockMode.ReadWrite,
+                bmp.PixelFormat);
+
+            // Get the address of the first line.
+            IntPtr ptr = bmpData.Scan0;
+
+            // Declare an array to hold the bytes of the bitmap.
+            int stride = Math.Abs(bmpData.Stride);
+            int bytes = stride * bmp.Height;
+            byte[] rgbValues = new byte[bytes];
+
+            // Copy the RGB values into the array.
+            System.Runtime.InteropServices.Marshal.Copy(ptr, rgbValues, 0, bytes);
+
+            bmp.UnlockBits(bmpData);
+
+            return new LinearAccessByteImage(rgbValues, stride, bmp.Width, bmp.Height, bmp.PixelFormat);
+        }
 
         public static Bitmap ByteArrayToBitmap(ByteImage byteImage)
         {
@@ -78,6 +102,24 @@ namespace VideoFrameSimilaritySort
 
             IntPtr ptr = bmpData.Scan0;
             System.Runtime.InteropServices.Marshal.Copy(byteImage.imageData, 0, ptr, byteImage.imageData.Length);
+
+            myBitmap.UnlockBits(bmpData);
+            return myBitmap;
+
+        }
+        public static Bitmap ByteArrayToBitmap(LinearAccessByteImage byteImage)
+        {
+            Bitmap myBitmap = new Bitmap(byteImage.width, byteImage.height, byteImage.originalPixelFormat);
+            Rectangle rect = new Rectangle(0, 0, myBitmap.Width, myBitmap.Height);
+            System.Drawing.Imaging.BitmapData bmpData =
+                myBitmap.LockBits(rect, System.Drawing.Imaging.ImageLockMode.ReadWrite,
+                myBitmap.PixelFormat);
+
+            bmpData.Stride = byteImage.originalStride;
+
+            IntPtr ptr = bmpData.Scan0;
+            byte[] originalDataReconstruction = byteImage.getOriginalDataReconstruction();
+            System.Runtime.InteropServices.Marshal.Copy(originalDataReconstruction, 0, ptr, originalDataReconstruction.Length);
 
             myBitmap.UnlockBits(bmpData);
             return myBitmap;
