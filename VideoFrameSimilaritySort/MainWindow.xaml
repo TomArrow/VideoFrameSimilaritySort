@@ -17,15 +17,27 @@
         </Grid.RowDefinitions>
         <StackPanel Grid.Column="0" Grid.Row="0"></StackPanel>
         <StackPanel Grid.Column="1" Grid.Row="0">
-            <Button x:Name="loadVideo_button" Click="loadVideo_button_Click">Load video file...</Button>
-            <!--<WrapPanel>
-                <Label>Maximum threads</Label>
-                <TextBox x:Name="maxThreads" MinWidth="50">4</TextBox>
-            </WrapPanel>-->
-            <Button x:Name="processVideo_button" Click="processVideo_button_Click" IsEnabled="False">Process video</Button>
-            <Button x:Name="saveSortedVideo_button" Click="saveSortedVideo_button_Click" IsEnabled="False">Save processed video</Button>
-            <Button x:Name="saveSortedFrameList_button" Click="saveSortedFrameList_button_Click" IsEnabled="False">Save sorted frame list</Button>
-            <Button x:Name="processWAVFile_button" Click="processWAVFile_button_Click" IsEnabled="False">Process WAV file</Button>
+            <GroupBox Header="Main functionality / Video processing">
+                <StackPanel>
+                    <Button x:Name="loadVideo_button" Click="loadVideo_button_Click">Load video file...</Button>
+                    <!--<WrapPanel>
+                        <Label>Maximum threads</Label>
+                        <TextBox x:Name="maxThreads" MinWidth="50">4</TextBox>
+                    </WrapPanel>-->
+                    <Button x:Name="processVideo_button" Click="processVideo_button_Click" IsEnabled="False">Process video</Button>
+                    <Button x:Name="saveSortedVideo_button" Click="saveSortedVideo_button_Click" IsEnabled="False">Save processed video</Button>
+                    <Button x:Name="saveSortedFrameList_button" Click="saveSortedFrameList_button_Click" IsEnabled="False">Save sorted frame list</Button>
+                    <Button x:Name="processWAVFile_button" Click="processWAVFile_button_Click" IsEnabled="False">Process WAV file</Button>
+                </StackPanel>
+            </GroupBox>
+            <GroupBox Header="Audio to spectrum video">
+                <StackPanel>
+
+                    <Button x:Name="audio2spectrumLoadAudio_button" Click="audio2spectrumLoadAudio_button_Click" IsEnabled="False">Load WAV file (mono, max 4 GB)</Button>
+                    <Button x:Name="audio2spectrumSaveSpectrumVideo_button" Click="audio2spectrumSaveSpectrumVideo_button_Click" IsEnabled="False">Save spectrum video</Button>
+                    <TextBlock TextWrapping="Wrap">You must first have a video loaded that this audio belongs to, so that the algorithm knows the framerate for the output</TextBlock>
+                </StackPanel>
+            </GroupBox>
         </StackPanel>
         <StackPanel Grid.Column="0" Grid.Row="1" Grid.ColumnSpan="2">
 

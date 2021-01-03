@@ -18,7 +18,7 @@ using System.Windows.Navigation;
 using System.Windows.Shapes;
 using Accord.Video.FFMPEG;
 using Microsoft.Win32;
-
+using Spectrogram;
 
 namespace VideoFrameSimilaritySort
 {
@@ -306,7 +306,7 @@ namespace VideoFrameSimilaritySort
             processVideo_button.IsEnabled = true;
             saveSortedVideo_button.IsEnabled = false;
             saveSortedFrameList_button.IsEnabled = false;
-
+            audio2spectrumLoadAudio_button.IsEnabled = true;
         }
 
         
@@ -446,5 +446,162 @@ namespace VideoFrameSimilaritySort
 
             }
         }
+
+        private void audio2spectrumLoadAudio_button_Click(object sender, RoutedEventArgs e)
+        {
+            OpenFileDialog ofd = new OpenFileDialog();
+            if (ofd.ShowDialog() == true)
+            {
+
+                audio2spectrumSaveSpectrumVideo_button.IsEnabled = false;
+                audio2spectrum_loadAudioAsync(ofd.FileName);
+
+            }
+        }
+
+        private void audio2spectrumSaveSpectrumVideo_button_Click(object sender, RoutedEventArgs e)
+        {
+            SaveFileDialog sfd = new SaveFileDialog();
+            if (sfd.ShowDialog() == true)
+            {
+
+                audio2spectrum_saveVideoAsync(sfd.FileName);
+
+            }
+        }
+
+        int audio2spectrum_sampleRate = 0;
+        double[] audio2spectrum_samples;
+        bool audio2spectrum_audioIsLoaded = false;
+        private async Task audio2spectrum_loadAudioAsync(string path)
+        {
+            var progressHandler = new Progress<string>(value =>
+            {
+                status_txt.Text = value;
+            });
+            var progress = progressHandler as IProgress<string>;
+
+            bool errored = false;
+            await Task.Run(() =>
+            {
+
+                try
+                {
+                    (audio2spectrum_sampleRate, audio2spectrum_samples) = WavFile.ReadMono(path);
+
+
+                }
+                catch (Exception e)
+                {
+                    errored = true;
+                    MessageBox.Show(e.Message);
+                }
+
+            });
+            if (!errored)
+            {
+
+                status_txt.Text = "Audio2Spectrum: Completed loading audio.";
+                audio2spectrum_audioIsLoaded = true;
+                audio2spectrumLoadAudio_button.IsEnabled = true;
+                audio2spectrumSaveSpectrumVideo_button.IsEnabled = true;
+            }
+        }
+
+        private async Task audio2spectrum_saveVideoAsync(string path)
+        {
+            var progressHandler = new Progress<string>(value =>
+            {
+                status_txt.Text = value;
+            });
+            var progress = progressHandler as IProgress<string>;
+            await Task.Run(() =>
+            {
+                long frameCount;
+                try
+                {
+
+
+                    double samplesPerFrame = ((double)audio2spectrum_sampleRate) * frameRate.Denominator / frameRate.Numerator;
+                    double totalFrameCount = Math.Ceiling(audio2spectrum_samples.Length / samplesPerFrame);
+
+                    int roundedSamplesPerFrame = (int)Math.Ceiling(samplesPerFrame);
+
+                    int outputWidth = 50; 
+                    int outputHeight = 50;
+                    double samplesPerPixel = samplesPerFrame / outputWidth;
+
+                    // Now find closest fft size (take next highest)
+                    int fftSize =(int) Math.Pow(2,Math.Ceiling(Math.Log(samplesPerPixel,2.0)));
+
+
+                    progress.Report("Audio2Spectrum: Loading spectrogram library");
+                    Spectrogram.Spectrogram spec = new Spectrogram.Spectrogram(audio2spectrum_sampleRate, fftSize: 2048, stepSize: 50);
+
+                    
+                    spec.SetFixedWidth(outputWidth);
+                    //outputWidth = spec.Width;
+
+                    progress.Report("Audio2Spectrum: Initializing video writer");
+                    VideoFileWriter writer = new VideoFileWriter();
+                    writer.Open(path, outputWidth, outputHeight, frameRate, VideoCodec.FFV1);
+
+                    /*
+                    Console.WriteLine("width:  " + reader.Width);
+                    Console.WriteLine("height: " + reader.Height);
+                    Console.WriteLine("fps:    " + reader.FrameRate);
+                    Console.WriteLine("codec:  " + reader.CodecName);
+                    Console.WriteLine("length:  " + reader.FrameCount);
+                    */
+
+
+                    frameCount = (long)totalFrameCount;
+
+                    // Enlarge the array to make sure we don't end up accessing nonexisting samples. We make it a tiny bit bigger than maybe necessary, just to be safe. (To be honest, I am just too lazy to calculate the precise number we need)
+                    if((long)Math.Ceiling(frameCount  * samplesPerFrame) > audio2spectrum_samples.Length)
+                    {
+                        progress.Report("Audio2Spectrum: Resizing array");
+                        Array.Resize<double>(ref audio2spectrum_samples, (int)Math.Ceiling(frameCount * samplesPerFrame));
+                    }
+
+                    double[] frameSampleBuffer = new double[roundedSamplesPerFrame];
+
+                    int currentFrame = 0;
+                    long currentStartSample = 0;
+
+                    progress.Report("Audio2Spectrum: Starting video generation");
+
+                    Bitmap tmp;
+                    for (int i = 0; i < frameCount; i++)
+                    {
+                        currentStartSample = (long) Math.Floor(i * samplesPerFrame);
+                        Array.Copy(audio2spectrum_samples, currentStartSample, frameSampleBuffer, 0, roundedSamplesPerFrame); // No need to worry about accessing too much at the end, since we resized the array before
+
+                        spec.Add(frameSampleBuffer);
+                        tmp = spec.GetBitmapMel(dB: true,melBinCount: outputHeight);
+#if DEBUG
+                        Console.WriteLine(tmp.Width+"x"+tmp.Height);
+#endif
+                        writer.WriteVideoFrame(tmp);
+                        if (currentFrame % 1000 == 0)
+                        {
+                            progress.Report("Audio2Spectrum: Saving video: " + i + "/" + frameCount + " frames");
+                        }
+                    }
+
+                    writer.Close();
+
+                }
+                catch (Exception e)
+                {
+                    MessageBox.Show(e.Message);
+                }
+
+            });
+            status_txt.Text = "Audio2Spectrum: Completed saving video.";
+            videoIsLoaded = true;
+
+        }
+
     }
 }
