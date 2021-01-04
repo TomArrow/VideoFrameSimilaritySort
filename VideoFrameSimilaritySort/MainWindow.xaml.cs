@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
@@ -44,15 +45,36 @@ namespace VideoFrameSimilaritySort
         float[] fps;
         float highestFPS;
         float lowestFPS;
+        float[] smallestDifferences;
+        float smallestSmallestDifference;
+        float highestSmallestDifference;
+
+        struct ProcessingProgressReport
+        {
+            public string message;
+            public bool drawStats; // whether to draw stats
+
+            public static implicit operator string(ProcessingProgressReport d) => d.message;
+            public override string ToString()
+            {
+                return message;
+            }
+        }
+
+        private void drawStats()
+        {
+
+        }
 
         private async Task processVideo()
         {
 
             //int maxThreads = 
 
-            var progressHandler = new Progress<string>(value =>
+            var progressHandler = new Progress<ProcessingProgressReport>(value =>
             {
-                status_txt.Text = value;
+                status_txt.Text = value.message;
+                if (value.drawStats) drawStats();
             });
             var progress = progressHandler as IProgress<string>;
             await Task.Run(() =>
@@ -69,6 +91,18 @@ namespace VideoFrameSimilaritySort
                 int stride = loadedVideo[0].stride;
                 int channelMultiplier = 3;
 
+
+                // Stats
+                Stopwatch stopWatch = new Stopwatch();
+                ProcessingProgressReport progressReport;
+                fps = new float[loadedVideo.Length];
+                smallestDifferences = new float[loadedVideo.Length];
+                lowestFPS = float.PositiveInfinity;
+                highestFPS = 0;
+                smallestSmallestDifference = float.PositiveInfinity;
+                highestSmallestDifference = 0;
+
+                // Vectorization related stuff
                 int elementsPerVector = Vector<short>.Count;
                 int elementsPerTwoVectors = 2* elementsPerVector;
                 int maxDifferencesPerVector = short.MaxValue/255; // How often can we add a difference (assuming unlikely case of 255 each time) to a vector until it overflows? Then we need to flush.
@@ -96,6 +130,7 @@ namespace VideoFrameSimilaritySort
                 {
 #endif
 
+                stopWatch.Start();
                 for (int currentIndex = 0; currentIndex < frameCount; currentIndex++)
                 {// not to confuse with current frame. We're just tracking our progress here.
 
@@ -147,6 +182,7 @@ namespace VideoFrameSimilaritySort
 
                             if(donePixelsPerVectorElement >= (maxDifferencesPerVector - 2))
                             {
+
                                 for(a = 0; a < elementsPerVector; a++)
                                 {
                                     thisFrameDifference += thisFrameRGBDifference[a];
@@ -243,10 +279,19 @@ namespace VideoFrameSimilaritySort
                     }*/
 
 
+                    //Stats
+                    fps[currentIndex] = 1/((float)stopWatch.ElapsedTicks / (float)Stopwatch.Frequency);
+                    if (fps[currentIndex] < lowestFPS) lowestFPS = fps[currentIndex];
+                    if (fps[currentIndex] > highestFPS) highestFPS = fps[currentIndex];
+                    smallestDifferences[currentIndex] = (float)smallestDifference;
+                    if (smallestDifference < smallestSmallestDifference) smallestSmallestDifference = smallestDifferences[currentIndex];
+                    if (smallestDifference > highestSmallestDifference) highestSmallestDifference = smallestDifferences[currentIndex];
+                    progressReport.drawStats = currentIndex % 100 == 0; // Only after 100 processed frames draw stats, to not have a notable performance impact
+                    stopWatch.Restart();
 
-
-
-                    progress.Report("Processing: " + currentIndex + "/" + frameCount + " ordered frames. Current frame is " + currentFrame+", last smallest difference was "+ smallestDifference);
+                    // Status update
+                    progressReport.message = "Processing: " + currentIndex + "/" + frameCount + " ordered frames. Current frame is " + currentFrame + ", last smallest difference was " + smallestDifference;
+                    progress.Report(progressReport);
 
                     if (smallestDifferenceFrame != -1)
                     {
@@ -666,6 +711,58 @@ namespace VideoFrameSimilaritySort
                 ", double:" + Vector<double>.Count + 
                 ", long:" + Vector<long>.Count + 
                 ", short:" + Vector<short>.Count);
+        }
+
+        private void randomTest_button_Click(object sender, RoutedEventArgs e)
+        {
+            Vector<short> blah = new Vector<short>(short.MaxValue);
+            int calc = Vector<short>.Count * short.MaxValue;
+            int sum1 = Vector.Dot<short>(blah, Vector<short>.One);
+
+            Vector<int> widenTarget1, widenTarget2;
+
+            Vector.Widen(blah, out widenTarget1, out widenTarget2);
+            int sum2 = Vector.Dot<int>(widenTarget1,Vector<int>.One) + Vector.Dot<int>(widenTarget2, Vector<int>.One);
+
+            MessageBox.Show("Calculated: "+calc+", summed (short): "+sum1+", summed (Widen,int):"+sum2);
+
+            // Test performance
+            long result1 = 0, result2 = 0;
+            int vectorLength = Vector<short>.Count;
+
+            long time1 = 0, time2 = 0;
+            long lastTime = 0;
+
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+
+            // Do this 100 times
+            for (int v = 0; v < 100; v++)
+            {
+
+                // Do 1 million of each
+                for (int i = 0; i < 1000000; i++)
+                {
+                    Vector.Widen(blah, out widenTarget1, out widenTarget2);
+                    result1 += Vector.Dot<int>(widenTarget1, Vector<int>.One) + Vector.Dot<int>(widenTarget2, Vector<int>.One);
+                }
+                time1 += watch.ElapsedMilliseconds - lastTime;
+                lastTime = watch.ElapsedMilliseconds;
+
+
+                for (int i = 0; i < 1000000; i++)
+                {
+                    for (int a = 0; a < vectorLength; a++)
+                    {
+                        result2 += blah[a];
+                    }
+                }
+                time2 += watch.ElapsedMilliseconds - lastTime;
+                lastTime = watch.ElapsedMilliseconds;
+            }
+
+            MessageBox.Show("100 million operations in milliseconds: Time (widen & dot): "+time1+", Time (iterate via for): "+time2);
+
+
         }
     }
 }

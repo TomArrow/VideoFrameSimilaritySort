@@ -41,6 +41,7 @@
             <GroupBox Header="Debugging stuff">
                 <StackPanel>
                     <Button x:Name="vectorSizeCheck_button" Click="vectorSizeCheck_button_Click">Vector size check</Button>
+                    <Button x:Name="randomTest_button" Click="randomTest_button_Click">Random test (no fixed meaning)</Button>
                 </StackPanel>
             </GroupBox>
         </StackPanel>
