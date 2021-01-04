@@ -40,6 +40,11 @@ namespace VideoFrameSimilaritySort
         bool videoIsOrdered = false;
         Accord.Math.Rational frameRate = 24;
 
+        // Statistics
+        float[] fps;
+        float highestFPS;
+        float lowestFPS;
+
         private async Task processVideo()
         {
 
@@ -148,11 +153,19 @@ namespace VideoFrameSimilaritySort
                                 }
                                 if (thisFrameDifference / pixelCountX3 > smallestDifferenceImpreciseOpt) break;
                                 thisFrameRGBDifference = new Vector<short>(0);
+                                donePixelsPerVectorElement = 0;
                             }
                             /*for(a=0; a < elementsPerVector; a++)
                             {
                                 currentFramePixel.Item[]
                             }*/
+                        }
+                        if(donePixelsPerVectorElement > 0)
+                        {
+                            for (a = 0; a < elementsPerVector; a++)
+                            {
+                                thisFrameDifference += thisFrameRGBDifference[a];
+                            }
                         }
                         /*
                         for (int y = 0; y < height; y++)
@@ -233,7 +246,7 @@ namespace VideoFrameSimilaritySort
 
 
 
-                    progress.Report("Processing: " + currentIndex + "/" + frameCount + " ordered frames. Current frame is " + currentFrame);
+                    progress.Report("Processing: " + currentIndex + "/" + frameCount + " ordered frames. Current frame is " + currentFrame+", last smallest difference was "+ smallestDifference);
 
                     if (smallestDifferenceFrame != -1)
                     {

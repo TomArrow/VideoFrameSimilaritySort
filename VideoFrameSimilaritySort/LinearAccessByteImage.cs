@@ -24,7 +24,10 @@ namespace VideoFrameSimilaritySort
             height = heightA;
             pixelFormat = PixelFormat.Format24bppRgb;
             originalPixelFormat = pixelFormatA;
-            int vectorCountForMultiplication = Vector<short>.Count*2; // bc thats what were gonna be using for the calculations. 2 bc we need to use widen to go from byte to short and that creates 2 vectors.
+
+            // bc thats what were gonna be using for the calculations. 2 bc we need to use widen to go from byte to short and that creates 2 vectors.
+            // we can ignore the bit of empty bytes being compared because they will just be zeros being compared to zeros and adding extra ifs to check they're not being compared would likely just slow down things more.
+            int vectorCountForMultiplication = Vector<short>.Count*2; 
 
             int pixelCount = width * height * 3;
             int pixelCountDivisibleByVectorSize = (int)(vectorCountForMultiplication * Math.Ceiling((double)pixelCount / (double)vectorCountForMultiplication));
