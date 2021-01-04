@@ -15,7 +15,9 @@
             <RowDefinition Height="*"></RowDefinition>
             <RowDefinition Height="20"></RowDefinition>
         </Grid.RowDefinitions>
-        <StackPanel Grid.Column="0" Grid.Row="0"></StackPanel>
+        <DockPanel x:Name="stats_img_container" Grid.Column="0" Grid.Row="0" LastChildFill="True">
+            <Image x:Name="stats_img" Stretch="Fill" DockPanel.Dock="Left" VerticalAlignment="Center"></Image>
+        </DockPanel>
         <StackPanel Grid.Column="1" Grid.Row="0">
             <GroupBox Header="Main functionality / Video processing">
                 <StackPanel>

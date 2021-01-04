@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.IO;
 using System.Linq;
 using System.Numerics;
@@ -52,17 +53,125 @@ namespace VideoFrameSimilaritySort
         struct ProcessingProgressReport
         {
             public string message;
+            public int currentIndex;
             public bool drawStats; // whether to draw stats
 
+            public ProcessingProgressReport(string messageA = "", int currentIndexA = 0, bool drawStatsA=false)
+            {
+                drawStats = drawStatsA;
+                currentIndex = currentIndexA;
+                message = messageA;
+            }
+
             public static implicit operator string(ProcessingProgressReport d) => d.message;
+            public static implicit operator ProcessingProgressReport(string b) => new ProcessingProgressReport(b);
             public override string ToString()
             {
                 return message;
             }
         }
 
-        private void drawStats()
+        private void drawStats(int maxIndex)
         {
+            int imageWidth = (int)stats_img_container.ActualWidth;
+            int imageHeight = (int)stats_img_container.ActualHeight;
+
+            if (imageWidth < 5 || imageHeight < 5) return; // avoid crashes and shit
+
+            // We flip imageHeight and imageWidth because it's more efficient to work on rows than on columns. We later rotate the image into the proper position
+            ByteImage statsImage = Helpers.BitmapToByteArray(new Bitmap(imageHeight, imageWidth, System.Drawing.Imaging.PixelFormat.Format24bppRgb));
+
+            int stride = statsImage.stride;
+            int strideHere;
+
+            double verticalScaleFactorFps = highestFPS == 0 ? 0: (imageHeight-1)/highestFPS;
+            double verticalScaleFactorSmallestDifference = highestSmallestDifference == 0 ? 1: (imageHeight-1) / highestSmallestDifference;
+
+            double indiziPerPixel = (double)maxIndex / (double)imageWidth;
+            int indiziPerPixelRounded = (int)Math.Ceiling(indiziPerPixel);
+            int pixelValueAddedPerValue = (int)Math.Max(1,Math.Ceiling(255.0 / indiziPerPixel));
+
+            float[] currentColumnValuesFps = new float[indiziPerPixelRounded];
+            float[] currentColumnValuesSmallestDifference = new float[indiziPerPixelRounded];
+
+            double averageFpsForColumnCounter;
+            double averageSmallestDifferenceForColumnCounter;
+
+            int rangeStart = 0;
+            int yPosition;
+            double yPositionUnrounded;
+
+            // Remember, x/y in the actual Bitmap data are flipped! Hence having the outer for be X makes more sense
+            for(int x = 0; x < imageWidth; x++)
+            {
+                strideHere = x * stride;
+                rangeStart = (int)Math.Floor((indiziPerPixel * (double)x));
+
+                Array.Copy(fps, rangeStart, currentColumnValuesFps, 0, Math.Min(indiziPerPixelRounded,fps.Length-rangeStart));
+                Array.Sort(currentColumnValuesFps);
+                Array.Copy(smallestDifferences, rangeStart, currentColumnValuesSmallestDifference, 0, Math.Min(indiziPerPixelRounded, smallestDifferences.Length-rangeStart));
+                Array.Sort(currentColumnValuesSmallestDifference);
+
+                averageFpsForColumnCounter = 0;
+                averageSmallestDifferenceForColumnCounter = 0;
+                for (int i = 0; i < indiziPerPixelRounded; i++) // fps
+                {
+                    yPositionUnrounded = currentColumnValuesFps[i] * verticalScaleFactorFps;
+                    yPosition = (int)yPositionUnrounded;
+                    averageFpsForColumnCounter += yPositionUnrounded;
+                    statsImage.imageData[strideHere + yPosition * 3+2] = statsImage.imageData[strideHere + yPosition * 3 + 2] == 255 ? (byte)255 : (byte)Math.Min(255,statsImage.imageData[strideHere + yPosition * 3+2] + (byte)pixelValueAddedPerValue);
+                }
+                yPosition = averageFpsForColumnCounter == 0 ? 0: (int)(averageFpsForColumnCounter / (double)indiziPerPixelRounded);
+                statsImage.imageData[strideHere + yPosition * 3 + 2] = 255;
+                for (int i = 0; i < indiziPerPixelRounded; i++) // Smallest differences
+                {
+                    yPositionUnrounded = currentColumnValuesSmallestDifference[i] * verticalScaleFactorSmallestDifference;
+                    yPosition = (int)yPositionUnrounded;
+                    averageSmallestDifferenceForColumnCounter += yPositionUnrounded;
+                    statsImage.imageData[strideHere + yPosition * 3+1] = statsImage.imageData[strideHere + yPosition * 3 + 1] == 255 ? (byte)255 : (byte)Math.Min(255,statsImage.imageData[strideHere + yPosition * 3+1] + (byte)pixelValueAddedPerValue);
+                }
+                yPosition = averageSmallestDifferenceForColumnCounter == 0 ? 0 : (int)(averageSmallestDifferenceForColumnCounter / (double)indiziPerPixelRounded);
+                statsImage.imageData[strideHere + yPosition * 3 + 1] = 255;
+                for (int y = 0; y < imageHeight; y++) // Apply gamma to make it more visible
+                {
+                    statsImage.imageData[strideHere + y * 3 + 1] = (byte) Math.Min(255, 255*Math.Pow(((double)statsImage.imageData[strideHere + y * 3 + 1]/255),1.0/3.0));
+                    statsImage.imageData[strideHere + y * 3 + 2] = (byte) Math.Min(255, 255*Math.Pow(((double)statsImage.imageData[strideHere + y * 3 + 2]/255),1.0/3.0));
+                }
+            }
+            Bitmap statsImageBitmap = Helpers.ByteArrayToBitmap(statsImage);
+            statsImageBitmap.RotateFlip(RotateFlipType.Rotate270FlipNone);
+
+            int padding = 2;
+            if(imageWidth > 200 && imageHeight > 100) { 
+
+                Graphics g = Graphics.FromImage(statsImageBitmap);
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+                g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
+                string fpsString = "Max FPS: " + highestFPS;
+                string lowestDifferenceString = "Biggest difference: " + highestSmallestDifference;
+
+                SizeF fpsStringSize = g.MeasureString(fpsString, new Font("Tahoma", 8));
+                SizeF lowestDifferenceStringSize = g.MeasureString(lowestDifferenceString, new Font("Tahoma", 8));
+                if((fpsStringSize.Width + padding )< imageWidth && (fpsStringSize.Height + padding) < imageHeight)
+                {
+
+                    RectangleF rectf = new RectangleF(padding, padding, fpsStringSize.Width, fpsStringSize.Height);
+                    g.DrawString(fpsString, new Font("Tahoma", 8), System.Drawing.Brushes.Red, rectf);
+                }
+                if((lowestDifferenceStringSize.Width + padding) < imageWidth && (fpsStringSize.Height + padding*2 + lowestDifferenceStringSize.Height) < imageHeight)
+                {
+
+                    RectangleF rectf = new RectangleF(padding, lowestDifferenceStringSize.Height+padding*2, lowestDifferenceStringSize.Width, lowestDifferenceStringSize.Height);
+                    g.DrawString(lowestDifferenceString, new Font("Tahoma", 8), System.Drawing.Brushes.Green, rectf);
+                }
+
+                g.Flush();
+            }
+
+
+            stats_img.Source = Helpers.BitmapToImageSource(statsImageBitmap);
 
         }
 
@@ -74,9 +183,9 @@ namespace VideoFrameSimilaritySort
             var progressHandler = new Progress<ProcessingProgressReport>(value =>
             {
                 status_txt.Text = value.message;
-                if (value.drawStats) drawStats();
+                if (value.drawStats) drawStats(value.currentIndex);
             });
-            var progress = progressHandler as IProgress<string>;
+            var progress = progressHandler as IProgress<ProcessingProgressReport>;
             await Task.Run(() =>
             {
                 int frameCount = loadedVideo.Length;
@@ -94,7 +203,7 @@ namespace VideoFrameSimilaritySort
 
                 // Stats
                 Stopwatch stopWatch = new Stopwatch();
-                ProcessingProgressReport progressReport;
+                ProcessingProgressReport progressReport = new ProcessingProgressReport();
                 fps = new float[loadedVideo.Length];
                 smallestDifferences = new float[loadedVideo.Length];
                 lowestFPS = float.PositiveInfinity;
@@ -124,7 +233,8 @@ namespace VideoFrameSimilaritySort
                 int maxCompletionPortThreads = 0;
                 ThreadPool.GetMaxThreads(out maxWorkers, out maxCompletionPortThreads);
 
-                progress.Report("Starting processing of "+frameCount+" frames with up to "+ maxWorkers+"(workers)/"+maxCompletionPortThreads + "(IO) ...");
+
+                progress.Report("Starting processing of " + frameCount + " frames with up to " + maxWorkers + "(workers)/" + maxCompletionPortThreads + "(IO) ...");
 #if DEBUG
                 try
                 {
@@ -250,6 +360,7 @@ namespace VideoFrameSimilaritySort
                         }
                     }
 
+
                     /*for (int compareFrame = 0; compareFrame < frameCount; compareFrame++)
                     {
                         frameDifferences[compareFrame] = double.PositiveInfinity;
@@ -285,12 +396,13 @@ namespace VideoFrameSimilaritySort
                     if (fps[currentIndex] > highestFPS) highestFPS = fps[currentIndex];
                     smallestDifferences[currentIndex] = (float)smallestDifference;
                     if (smallestDifference < smallestSmallestDifference) smallestSmallestDifference = smallestDifferences[currentIndex];
-                    if (smallestDifference > highestSmallestDifference) highestSmallestDifference = smallestDifferences[currentIndex];
+                    if (smallestDifference > highestSmallestDifference && smallestDifference != double.PositiveInfinity) highestSmallestDifference = smallestDifferences[currentIndex];
                     progressReport.drawStats = currentIndex % 100 == 0; // Only after 100 processed frames draw stats, to not have a notable performance impact
                     stopWatch.Restart();
 
                     // Status update
                     progressReport.message = "Processing: " + currentIndex + "/" + frameCount + " ordered frames. Current frame is " + currentFrame + ", last smallest difference was " + smallestDifference;
+                    progressReport.currentIndex = currentIndex;
                     progress.Report(progressReport);
 
                     if (smallestDifferenceFrame != -1)
@@ -307,7 +419,10 @@ namespace VideoFrameSimilaritySort
                     MessageBox.Show("le error: "+e.Message);
                 }
 #endif
-
+                progressReport.message = "Processing finished";
+                progressReport.drawStats = true;
+                progressReport.currentIndex = frameCount-1;
+                progress.Report(progressReport);
                 orderedVideo = sortedIndizi;
             });
             status_txt.Text = "Completed processing.";
