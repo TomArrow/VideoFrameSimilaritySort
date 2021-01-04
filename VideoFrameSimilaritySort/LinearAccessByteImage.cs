@@ -10,7 +10,7 @@ namespace VideoFrameSimilaritySort
 {
     class LinearAccessByteImage
     {
-        public byte[] imageData;
+        public sbyte[] imageData;
         public int stride;
         public int width, height;
         public PixelFormat pixelFormat;
@@ -24,12 +24,12 @@ namespace VideoFrameSimilaritySort
             height = heightA;
             pixelFormat = PixelFormat.Format24bppRgb;
             originalPixelFormat = pixelFormatA;
-            int vectorSize = Vector<short>.Count; // bc thats what were gonna be using for the calculations
+            int vectorCountForMultiplication = Vector<short>.Count*2; // bc thats what were gonna be using for the calculations. 2 bc we need to use widen to go from byte to short and that creates 2 vectors.
 
             int pixelCount = width * height * 3;
-            int pixelCountDivisibleByVectorSize = (int)(vectorSize * Math.Ceiling((double)pixelCount / (double)vectorSize));
+            int pixelCountDivisibleByVectorSize = (int)(vectorCountForMultiplication * Math.Ceiling((double)pixelCount / (double)vectorCountForMultiplication));
 
-            imageData = new byte[pixelCountDivisibleByVectorSize]; // We're not actually going to be using the extra pixels for anything useful, it's just to avoid memory overflow when reading from the array
+            imageData = new sbyte[pixelCountDivisibleByVectorSize]; // We're not actually going to be using the extra pixels for anything useful, it's just to avoid memory overflow when reading from the array
 
             int channelMultiplier = 3;
             if (pixelFormatA == PixelFormat.Format32bppArgb)
@@ -44,9 +44,9 @@ namespace VideoFrameSimilaritySort
                 linearHere = y * width*3;
                 for(int x = 0; x < width; x++)
                 {
-                    imageData[linearHere + x * 3] = imageDataA[strideHere + x * channelMultiplier];
-                    imageData[linearHere + x * 3+1] = imageDataA[strideHere + x * channelMultiplier+1];
-                    imageData[linearHere + x * 3+2] = imageDataA[strideHere + x * channelMultiplier+2];
+                    imageData[linearHere + x * 3] = (sbyte)( imageDataA[strideHere + x * channelMultiplier]-128);
+                    imageData[linearHere + x * 3+1] = (sbyte)(imageDataA[strideHere + x * channelMultiplier+1]-128);
+                    imageData[linearHere + x * 3+2] = (sbyte)(imageDataA[strideHere + x * channelMultiplier+2]-128);
                 }
             }
 
@@ -76,9 +76,9 @@ namespace VideoFrameSimilaritySort
                 linearHere = y * width*3;
                 for (int x = 0; x < width; x++)
                 {
-                    output[strideHere + x * channelMultiplier] = imageData[linearHere + x * 3];
-                    output[strideHere + x * channelMultiplier + 1] = imageData[linearHere + x * 3 + 1];
-                    output[strideHere + x * channelMultiplier + 2] = imageData[linearHere + x * 3 + 2]; 
+                    output[strideHere + x * channelMultiplier] = (byte)( imageData[linearHere + x * 3]+128);
+                    output[strideHere + x * channelMultiplier + 1] = (byte)(imageData[linearHere + x * 3 + 1] + 128);
+                    output[strideHere + x * channelMultiplier + 2] = (byte)(imageData[linearHere + x * 3 + 2] + 128); 
                     if(channelMultiplier == 4)
                     {
                         output[strideHere + x * channelMultiplier + 3] = (byte)255;
@@ -93,7 +93,7 @@ namespace VideoFrameSimilaritySort
             get { return imageData.Length; }
         }
 
-        public byte this[int index]
+        public sbyte this[int index]
         {
             get
             {

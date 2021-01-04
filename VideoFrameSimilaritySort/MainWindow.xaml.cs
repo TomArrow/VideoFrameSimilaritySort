@@ -19,6 +19,7 @@ using System.Windows.Shapes;
 using Accord.Video.FFMPEG;
 using Microsoft.Win32;
 using Spectrogram;
+using Vector = System.Numerics.Vector;
 
 namespace VideoFrameSimilaritySort
 {
@@ -63,6 +64,11 @@ namespace VideoFrameSimilaritySort
                 int stride = loadedVideo[0].stride;
                 int channelMultiplier = 3;
 
+                int elementsPerVector = Vector<short>.Count;
+                int elementsPerTwoVectors = 2* elementsPerVector;
+                int maxDifferencesPerVector = short.MaxValue/255; // How often can we add a difference (assuming unlikely case of 255 each time) to a vector until it overflows? Then we need to flush.
+                int oneFrameTotalLength = loadedVideo[0].imageData.Length;
+
                 if(loadedVideo[0].pixelFormat == System.Drawing.Imaging.PixelFormat.Format32bppArgb)
                 {
                     channelMultiplier = 4;
@@ -85,124 +91,157 @@ namespace VideoFrameSimilaritySort
                 {
 #endif
 
-                    for (int currentIndex = 0; currentIndex < frameCount; currentIndex++)
-                    {// not to confuse with current frame. We're just tracking our progress here.
+                for (int currentIndex = 0; currentIndex < frameCount; currentIndex++)
+                {// not to confuse with current frame. We're just tracking our progress here.
 
 
-                        double smallestDifference = double.PositiveInfinity;
-                        int smallestDifferenceFrame = -1;
+                    double smallestDifference = double.PositiveInfinity;
+                    int smallestDifferenceFrame = -1;
 
-                        //currentFrameData = new Vector3Image(loadedVideo[currentFrame]);
-                        //ParallelOptions options = new ParallelOptions();
-                        //options.MaxDegreeOfParallelism = 4;
+                    //currentFrameData = new Vector3Image(loadedVideo[currentFrame]);
+                    //ParallelOptions options = new ParallelOptions();
+                    //options.MaxDegreeOfParallelism = 4;
 
-                        double smallestDifferenceImpreciseOpt = double.PositiveInfinity;
-                        // Go through all frames, comparing them to the current frame
-                        Parallel.For(0, frameCount, (compareFrame) =>
-                        { 
-                            //File.WriteAllText(compareFrame + ".txt", ""); // debug
-
-
-                            frameDifferences[compareFrame] = double.PositiveInfinity;
-                            if (compareFrame == currentFrame) return; // No need to compare to itself.
-                            if (alreadyUsedFrames[compareFrame] == true) return; // No need to go through already used frames
-
-                            double thisFrameDifference = 0;
-                            Vector3 thisFrameRGBDifference = new Vector3() { X = 0, Y = 0, Z = 0 };
-                            Vector3 currentFramePixel = new Vector3() { X = 0, Y = 0, Z = 0 };
-                            Vector3 compareFramePixel = new Vector3() { X = 0, Y = 0, Z = 0 };
+                    double smallestDifferenceImpreciseOpt = double.PositiveInfinity;
+                    // Go through all frames, comparing them to the current frame
+                    Parallel.For(0, frameCount, (compareFrame) =>
+                    {
+                        //File.WriteAllText(compareFrame + ".txt", ""); // debug
 
 
-                            // Calculate difference
-                            int baseIndex;
-                            //int pixelOffsetBase;
-                            for (int y = 0; y < height; y++)
-                            {
-                                //pixelOffsetBase = y * width;
-                                for (int x = 0; x < width; x++)
-                                {
-                                    baseIndex = stride * y + x * channelMultiplier;
-                                    currentFramePixel.X = loadedVideo[currentFrame].imageData[baseIndex];
-                                    currentFramePixel.Y = loadedVideo[currentFrame].imageData[baseIndex + 1];
-                                    currentFramePixel.Z = loadedVideo[currentFrame].imageData[baseIndex + 2];
-                                    compareFramePixel.X = loadedVideo[compareFrame].imageData[baseIndex];
-                                    compareFramePixel.Y = loadedVideo[compareFrame].imageData[baseIndex + 1];
-                                    compareFramePixel.Z = loadedVideo[compareFrame].imageData[baseIndex + 2];
-                                    thisFrameRGBDifference += Vector3.Abs(currentFramePixel - compareFramePixel);
-                                    //thisFrameRGBDifference += Vector3.Abs(currentFrameData.imageData[pixelOffsetBase+x]-compareFramePixel);
-                                    //thisFrameDifference += Math.Abs(loadedVideo[currentFrame].imageData[baseIndex] - loadedVideo[compareFrame].imageData[baseIndex]);
-                                    //thisFrameDifference += Math.Abs(loadedVideo[currentFrame].imageData[baseIndex + 1] - loadedVideo[compareFrame].imageData[baseIndex + 1]);
-                                    //thisFrameDifference += Math.Abs(loadedVideo[currentFrame].imageData[baseIndex + 2] - loadedVideo[compareFrame].imageData[baseIndex + 2]);
-                                }
-                                //if (thisFrameDifference / pixelCountX3 > smallestDifferenceImpreciseOpt) break; // fast skip for very different frames. Since this is multithreaded, this might not always be correct in the sense of always having the right number in smallestDifference, but might work as optimization.
-                                thisFrameDifference = thisFrameRGBDifference.X + thisFrameRGBDifference.Y + thisFrameRGBDifference.Z;
-                                if (thisFrameDifference / pixelCountX3 > smallestDifferenceImpreciseOpt) break; // fast skip for very different frames. Since this is multithreaded, this might not always be correct in the sense of always having the right number in smallestDifference, but might work as optimization.
-                            }
-                            thisFrameDifference = thisFrameRGBDifference.X + thisFrameRGBDifference.Y + thisFrameRGBDifference.Z;
-                            frameDifferences[compareFrame] = thisFrameDifference / pixelCountX3;
-                            if (frameDifferences[compareFrame] < smallestDifferenceImpreciseOpt)
-                            {
-                                smallestDifferenceImpreciseOpt = frameDifferences[compareFrame];
-                            }
+                        frameDifferences[compareFrame] = double.PositiveInfinity;
+                        if (compareFrame == currentFrame) return; // No need to compare to itself.
+                        if (alreadyUsedFrames[compareFrame] == true) return; // No need to go through already used frames
 
-                            //if (compareFrame % 1000 == 0)
-                            //{
-                            //    progress.Report("Processing: " + currentIndex + "/" + frameCount + " ordered frames. Current frame is "+currentFrame+" comparing to "+compareFrame);
-                            //}
-                        });
+                        double thisFrameDifference = 0;
+                        /*Vector3 thisFrameRGBDifference = new Vector3() { X = 0, Y = 0, Z = 0 };
+                        Vector3 currentFramePixel = new Vector3() { X = 0, Y = 0, Z = 0 };
+                        Vector3 compareFramePixel = new Vector3() { X = 0, Y = 0, Z = 0 };*/
+                        Vector<short> thisFrameRGBDifference = new Vector<short>(0);
+                        Vector<short> currentFramePixel = new Vector<short>();
+                        Vector<short> currentFramePixel2 = new Vector<short>();
+                        Vector<short> compareFramePixel = new Vector<short>();
+                        Vector<short> compareFramePixel2 = new Vector<short>();
 
 
+                        // Calculate difference
+                        int baseIndex;
+                        //int pixelOffsetBase;
 
-                        for (int compareFrame = 0; compareFrame < frameCount; compareFrame++)
+                        int i, a;
+                        int donePixelsPerVectorElement = 0;
+                        for (i = 0; i < oneFrameTotalLength; i += elementsPerTwoVectors)
                         {
-                            if (frameDifferences[compareFrame] < smallestDifference)
+
+                            Vector.Widen(new Vector<sbyte>(loadedVideo[currentFrame].imageData, i), out currentFramePixel, out currentFramePixel2);
+                            Vector.Widen(new Vector<sbyte>(loadedVideo[compareFrame].imageData, i), out compareFramePixel, out compareFramePixel2);
+                            thisFrameRGBDifference += Vector.Abs<short>(currentFramePixel - compareFramePixel);
+                            thisFrameRGBDifference += Vector.Abs<short>(currentFramePixel2 - compareFramePixel2);
+
+                            donePixelsPerVectorElement += 2;
+
+                            if(donePixelsPerVectorElement >= (maxDifferencesPerVector - 2))
                             {
-                                smallestDifference = frameDifferences[compareFrame];
-                                smallestDifferenceFrame = compareFrame;
+                                for(a = 0; a < elementsPerVector; a++)
+                                {
+                                    thisFrameDifference += thisFrameRGBDifference[a];
+                                }
+                                if (thisFrameDifference / pixelCountX3 > smallestDifferenceImpreciseOpt) break;
+                                thisFrameRGBDifference = new Vector<short>(0);
                             }
+                            /*for(a=0; a < elementsPerVector; a++)
+                            {
+                                currentFramePixel.Item[]
+                            }*/
+                        }
+                        /*
+                        for (int y = 0; y < height; y++)
+                        {
+                            //pixelOffsetBase = y * width;
+                            for (int x = 0; x < width; x++)
+                            {
+                                baseIndex = stride * y + x * channelMultiplier;
+                                currentFramePixel.X = loadedVideo[currentFrame].imageData[baseIndex];
+                                currentFramePixel.Y = loadedVideo[currentFrame].imageData[baseIndex + 1];
+                                currentFramePixel.Z = loadedVideo[currentFrame].imageData[baseIndex + 2];
+                                compareFramePixel.X = loadedVideo[compareFrame].imageData[baseIndex];
+                                compareFramePixel.Y = loadedVideo[compareFrame].imageData[baseIndex + 1];
+                                compareFramePixel.Z = loadedVideo[compareFrame].imageData[baseIndex + 2];
+                                thisFrameRGBDifference += Vector3.Abs(currentFramePixel - compareFramePixel);
+                                //thisFrameRGBDifference += Vector3.Abs(currentFrameData.imageData[pixelOffsetBase+x]-compareFramePixel);
+                                //thisFrameDifference += Math.Abs(loadedVideo[currentFrame].imageData[baseIndex] - loadedVideo[compareFrame].imageData[baseIndex]);
+                                //thisFrameDifference += Math.Abs(loadedVideo[currentFrame].imageData[baseIndex + 1] - loadedVideo[compareFrame].imageData[baseIndex + 1]);
+                                //thisFrameDifference += Math.Abs(loadedVideo[currentFrame].imageData[baseIndex + 2] - loadedVideo[compareFrame].imageData[baseIndex + 2]);
+                            }
+                            //if (thisFrameDifference / pixelCountX3 > smallestDifferenceImpreciseOpt) break; // fast skip for very different frames. Since this is multithreaded, this might not always be correct in the sense of always having the right number in smallestDifference, but might work as optimization.
+                            thisFrameDifference = thisFrameRGBDifference.X + thisFrameRGBDifference.Y + thisFrameRGBDifference.Z;
+                            if (thisFrameDifference / pixelCountX3 > smallestDifferenceImpreciseOpt) break; // fast skip for very different frames. Since this is multithreaded, this might not always be correct in the sense of always having the right number in smallestDifference, but might work as optimization.
+                        }
+                        thisFrameDifference = thisFrameRGBDifference.X + thisFrameRGBDifference.Y + thisFrameRGBDifference.Z;*/
+                        frameDifferences[compareFrame] = thisFrameDifference / pixelCountX3;
+                        if (frameDifferences[compareFrame] < smallestDifferenceImpreciseOpt)
+                        {
+                            smallestDifferenceImpreciseOpt = frameDifferences[compareFrame];
                         }
 
-                        /*for (int compareFrame = 0; compareFrame < frameCount; compareFrame++)
+                        //if (compareFrame % 1000 == 0)
+                        //{
+                        //    progress.Report("Processing: " + currentIndex + "/" + frameCount + " ordered frames. Current frame is "+currentFrame+" comparing to "+compareFrame);
+                        //}
+                    });
+
+
+
+                    for (int compareFrame = 0; compareFrame < frameCount; compareFrame++)
+                    {
+                        if (frameDifferences[compareFrame] < smallestDifference)
                         {
-                            frameDifferences[compareFrame] = double.PositiveInfinity;
-                            if (compareFrame == currentFrame) continue; // No need to compare to itself.
-                            if (alreadyUsedFrames[compareFrame] == true) continue; // No need to go through already used frames
-
-                            double thisFrameDifference = 0;
-                            // Calculate difference
-                            int baseIndex;
-                            for (int y = 0; y < height; y++)
-                            {
-                                for (int x = 0; x < width; x++)
-                                {
-                                    baseIndex = stride * y + x*channelMultiplier;
-                                    thisFrameDifference += Math.Abs(loadedVideo[currentFrame].imageData[baseIndex] - loadedVideo[compareFrame].imageData[baseIndex]);
-                                    thisFrameDifference += Math.Abs(loadedVideo[currentFrame].imageData[baseIndex + 1] - loadedVideo[compareFrame].imageData[baseIndex + 1]);
-                                    thisFrameDifference += Math.Abs(loadedVideo[currentFrame].imageData[baseIndex + 2] - loadedVideo[compareFrame].imageData[baseIndex + 2]);
-                                }
-                                if (thisFrameDifference / pixelCountX3 > smallestDifferenceImpreciseOpt) break; // fast skip for very different frames. Since this is multithreaded, this might not always be correct in the sense of always having the right number in smallestDifference, but might work as optimization.
-                            }
-                            frameDifferences[compareFrame] = thisFrameDifference / pixelCountX3;
-                            if (frameDifferences[compareFrame] < smallestDifference)
-                            {
-                                smallestDifference = frameDifferences[compareFrame];
-                                smallestDifferenceFrame = compareFrame;
-                            }
-                        }*/
-
-
-
-
-
-                        progress.Report("Processing: " + currentIndex + "/" + frameCount + " ordered frames. Current frame is " + currentFrame);
-
-                        if (smallestDifferenceFrame != -1)
-                        {
-                            sortedIndizi[currentIndex] = smallestDifferenceFrame;
-                            currentFrame = smallestDifferenceFrame;
-                            alreadyUsedFrames[smallestDifferenceFrame] = true;
+                            smallestDifference = frameDifferences[compareFrame];
+                            smallestDifferenceFrame = compareFrame;
                         }
                     }
+
+                    /*for (int compareFrame = 0; compareFrame < frameCount; compareFrame++)
+                    {
+                        frameDifferences[compareFrame] = double.PositiveInfinity;
+                        if (compareFrame == currentFrame) continue; // No need to compare to itself.
+                        if (alreadyUsedFrames[compareFrame] == true) continue; // No need to go through already used frames
+
+                        double thisFrameDifference = 0;
+                        // Calculate difference
+                        int baseIndex;
+                        for (int y = 0; y < height; y++)
+                        {
+                            for (int x = 0; x < width; x++)
+                            {
+                                baseIndex = stride * y + x*channelMultiplier;
+                                thisFrameDifference += Math.Abs(loadedVideo[currentFrame].imageData[baseIndex] - loadedVideo[compareFrame].imageData[baseIndex]);
+                                thisFrameDifference += Math.Abs(loadedVideo[currentFrame].imageData[baseIndex + 1] - loadedVideo[compareFrame].imageData[baseIndex + 1]);
+                                thisFrameDifference += Math.Abs(loadedVideo[currentFrame].imageData[baseIndex + 2] - loadedVideo[compareFrame].imageData[baseIndex + 2]);
+                            }
+                            if (thisFrameDifference / pixelCountX3 > smallestDifferenceImpreciseOpt) break; // fast skip for very different frames. Since this is multithreaded, this might not always be correct in the sense of always having the right number in smallestDifference, but might work as optimization.
+                        }
+                        frameDifferences[compareFrame] = thisFrameDifference / pixelCountX3;
+                        if (frameDifferences[compareFrame] < smallestDifference)
+                        {
+                            smallestDifference = frameDifferences[compareFrame];
+                            smallestDifferenceFrame = compareFrame;
+                        }
+                    }*/
+
+
+
+
+
+                    progress.Report("Processing: " + currentIndex + "/" + frameCount + " ordered frames. Current frame is " + currentFrame);
+
+                    if (smallestDifferenceFrame != -1)
+                    {
+                        sortedIndizi[currentIndex] = smallestDifferenceFrame;
+                        currentFrame = smallestDifferenceFrame;
+                        alreadyUsedFrames[smallestDifferenceFrame] = true;
+                    }
+                }
 #if DEBUG
                 }
                 catch (Exception e)
