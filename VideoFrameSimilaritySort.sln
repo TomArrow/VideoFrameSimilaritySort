@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VideoFrameSimilaritySort", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PerformanceBenchmarks", "PerformanceBenchmarks\PerformanceBenchmarks.csproj", "{B67CAC8B-A2D4-4185-AF0A-ADB775FED176}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VideoFrameSimilaritySort-CrossPlatform-CLI", "VideoFrameSimilaritySort-CrossPlatform-CLI\VideoFrameSimilaritySort-CrossPlatform-CLI.csproj", "{A8A14C4D-6562-4EF0-A290-D3A6CBA242C1}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -31,6 +33,14 @@ Global
 		{B67CAC8B-A2D4-4185-AF0A-ADB775FED176}.Release|Any CPU.Build.0 = Release|Any CPU
 		{B67CAC8B-A2D4-4185-AF0A-ADB775FED176}.Release|x64.ActiveCfg = Release|Any CPU
 		{B67CAC8B-A2D4-4185-AF0A-ADB775FED176}.Release|x64.Build.0 = Release|Any CPU
+		{A8A14C4D-6562-4EF0-A290-D3A6CBA242C1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A8A14C4D-6562-4EF0-A290-D3A6CBA242C1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A8A14C4D-6562-4EF0-A290-D3A6CBA242C1}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{A8A14C4D-6562-4EF0-A290-D3A6CBA242C1}.Debug|x64.Build.0 = Debug|Any CPU
+		{A8A14C4D-6562-4EF0-A290-D3A6CBA242C1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A8A14C4D-6562-4EF0-A290-D3A6CBA242C1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A8A14C4D-6562-4EF0-A290-D3A6CBA242C1}.Release|x64.ActiveCfg = Release|Any CPU
+		{A8A14C4D-6562-4EF0-A290-D3A6CBA242C1}.Release|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

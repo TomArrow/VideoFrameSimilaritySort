@@ -6,15 +6,15 @@ using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace VideoFrameSimilaritySort
+namespace VideoFrameSimilaritySort_CrossPlatform_CLI
 {
     class LinearAccessByteImage
     {
         public sbyte[] imageData;
         public int stride;
         public int width, height;
-        public PixelFormat pixelFormat;
-        public PixelFormat originalPixelFormat;
+        //public PixelFormat pixelFormat;
+        //public PixelFormat originalPixelFormat;
         public int originalStride;
 
 
@@ -23,15 +23,15 @@ namespace VideoFrameSimilaritySort
             originalStride = strideA;
             width = widthA;
             height = heightA;
-            pixelFormat = PixelFormat.Format24bppRgb;
+            //pixelFormat = PixelFormat.Format24bppRgb;
 
             if(channelMultiplier == 3)
             {
 
-                originalPixelFormat = PixelFormat.Format24bppRgb;
+                //originalPixelFormat = PixelFormat.Format24bppRgb;
             } else if (channelMultiplier == 4)
             {
-                originalPixelFormat = PixelFormat.Format32bppArgb;
+                //originalPixelFormat = PixelFormat.Format32bppArgb;
             }
 
             // bc thats what were gonna be using for the calculations. 2 bc we need to use widen to go from byte to short and that creates 2 vectors.
@@ -60,6 +60,7 @@ namespace VideoFrameSimilaritySort
 
             //imageData = imageDataA;
         }
+        /*
         public LinearAccessByteImage(byte[] imageDataA, int strideA, int widthA, int heightA, PixelFormat pixelFormatA)
         {
             originalStride = strideA;
@@ -100,6 +101,7 @@ namespace VideoFrameSimilaritySort
 
             //imageData = imageDataA;
         }
+        
 
         public byte[] getOriginalDataReconstruction()
         {
@@ -132,7 +134,7 @@ namespace VideoFrameSimilaritySort
                 }
             }
             return output;
-        }
+        }*/
 
         public int Length
         {

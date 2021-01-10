@@ -46,6 +46,11 @@
                     <Button x:Name="randomTest_button" Click="randomTest_button_Click">Random test (no fixed meaning)</Button>
                 </StackPanel>
             </GroupBox>
+            <GroupBox Header="Cross Platform">
+                <StackPanel>
+                    <Button x:Name="vfssppExport_button" Click="vfssppCreate_button_Click">Create VFSSPP file for CLI tool</Button>
+                </StackPanel>
+            </GroupBox>
         </StackPanel>
         <StackPanel Grid.Column="0" Grid.Row="1" Grid.ColumnSpan="2">
 

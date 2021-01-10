@@ -8,6 +8,7 @@ using System.Windows.Media.Imaging;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Numerics;
+using System.Runtime.InteropServices;
 
 namespace VideoFrameSimilaritySort
 {
@@ -29,6 +30,19 @@ namespace VideoFrameSimilaritySort
                 return bitmapimage;
             }
         }
+
+        public static T ReadStruct<T>(BinaryReader binary_reader) where T : struct
+        {
+            Byte[] buffer = new Byte[Marshal.SizeOf(typeof(T))];
+            binary_reader.Read(buffer, 0, buffer.Count());
+
+            GCHandle handle = GCHandle.Alloc(buffer, GCHandleType.Pinned);
+
+            T result = (T)Marshal.PtrToStructure(handle.AddrOfPinnedObject(), typeof(T));
+            handle.Free();
+            return result;
+        }
+
 
         // from: https://martin.ankerl.com/2007/10/04/optimized-pow-approximation-for-java-and-c-c/
         // sadly garbage (doesn't work)

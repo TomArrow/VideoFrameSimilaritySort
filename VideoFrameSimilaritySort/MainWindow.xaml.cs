@@ -273,6 +273,8 @@ namespace VideoFrameSimilaritySort
                         Vector<short> compareFramePixel = new Vector<short>();
                         Vector<short> compareFramePixel2 = new Vector<short>();
 
+                        //Vector<short> tmpDiff = new Vector<short>();
+
 
                         // Calculate difference
                         int baseIndex;
@@ -288,6 +290,12 @@ namespace VideoFrameSimilaritySort
                             thisFrameRGBDifference += Vector.Abs<short>(currentFramePixel - compareFramePixel);
                             thisFrameRGBDifference += Vector.Abs<short>(currentFramePixel2 - compareFramePixel2);
 
+                            // Danger: XOR fuckery
+                            //tmpDiff = currentFramePixel - compareFramePixel;
+                            //(tmpDiff ^ (tmpDiff >> 31)) - (tmpDiff >> 31);
+                            // /Danger XOR fuckery over
+
+
                             donePixelsPerVectorElement += 2;
 
                             if(donePixelsPerVectorElement >= (maxDifferencesPerVector - 2))
@@ -297,9 +305,9 @@ namespace VideoFrameSimilaritySort
                                 {
                                     thisFrameDifference += thisFrameRGBDifference[a];
                                 }
+                                donePixelsPerVectorElement = 0;
                                 if (thisFrameDifference / pixelCountX3 > smallestDifferenceImpreciseOpt) break;
                                 thisFrameRGBDifference = new Vector<short>(0);
-                                donePixelsPerVectorElement = 0;
                             }
                             /*for(a=0; a < elementsPerVector; a++)
                             {
@@ -442,6 +450,8 @@ namespace VideoFrameSimilaritySort
             var progress = progressHandler as IProgress<string>;
             int tooFewFramesDelivered = 0;
 
+            bool failed = false;
+
             await Task.Run(() =>
             {
                 long frameCount;
@@ -501,10 +511,15 @@ namespace VideoFrameSimilaritySort
                 }
                 catch (Exception e)
                 {
+                    failed = true;
                     MessageBox.Show(e.Message);
                 }
 
             });
+            if (failed)
+            {
+                return;
+            }
             if (tooFewFramesDelivered > 0)
             {
 
@@ -879,5 +894,126 @@ namespace VideoFrameSimilaritySort
 
 
         }
+
+        private void vfssppCreate_button_Click(object sender, RoutedEventArgs e)
+        {
+            OpenFileDialog ofd = new OpenFileDialog();
+            ofd.Title = "Choose source video file";
+            if (ofd.ShowDialog() == true)
+            {
+                SaveFileDialog sfd = new SaveFileDialog();
+                sfd.Filter = "Video Frame Similarity Sort Pre-Process File (*.vfsspp)|*.vfsspp";
+                sfd.Title = "Choose destination VFSSPP file";
+                if (sfd.ShowDialog() == true)
+                {
+
+                    vfssppCreate(ofd.FileName, sfd.FileName);
+
+                }
+
+            }
+        }
+
+        private async Task vfssppCreate(string pathSource, string pathDestination)
+        {
+            vfssppExport_button.IsEnabled = false;
+            var progressHandler = new Progress<string>(value =>
+            {
+                status_txt.Text = value;
+            });
+            var progress = progressHandler as IProgress<string>;
+            int tooFewFramesDelivered = 0;
+
+            bool failed = false;
+
+            await Task.Run(() =>
+            {
+                long frameCount;
+                long actualFrameCount;
+                try
+                {
+
+
+                    VideoFileReader reader = new VideoFileReader();
+                    reader.Open(pathSource);
+
+                    /*
+                    Console.WriteLine("width:  " + reader.Width);
+                    Console.WriteLine("height: " + reader.Height);
+                    Console.WriteLine("fps:    " + reader.FrameRate);
+                    Console.WriteLine("codec:  " + reader.CodecName);
+                    Console.WriteLine("length:  " + reader.FrameCount);
+                    */
+
+                    actualFrameCount= frameCount = reader.FrameCount;
+
+                    int currentFrame = 0;
+
+                    LinearAccessByteImage loadedFrame;
+                    frameRate = reader.FrameRate;
+
+                    VFSSPPFile vfssppWriter = new VFSSPPFile(pathDestination,reader.Width,reader.Height,reader.FrameCount,reader.Width*reader.Height*3);
+
+
+                    while (true)
+                    {
+
+                        using (Bitmap videoFrame = reader.ReadVideoFrame())
+                        {
+                            if (videoFrame == null)
+                                break;
+
+                            loadedFrame = Helpers.BitmapToLinearAccessByteArray(videoFrame);
+
+
+                            vfssppWriter.writeImage(loadedFrame);
+
+                            if (currentFrame % 1000 == 0)
+                            {
+                                progress.Report("Converting video to VFSSPP: " + currentFrame + "/" + frameCount + " frames");
+                            }
+
+
+                            currentFrame++;
+                            // process the frame here
+
+                        }
+                    }
+
+                    reader.Close();
+
+                    // If the video delivered less frames than it promised (can happen for whatever reason) then we chip off the last parts of the array
+                    if (currentFrame < frameCount)
+                    {
+                        tooFewFramesDelivered = (int)frameCount - currentFrame;
+                        actualFrameCount= currentFrame;
+                        vfssppWriter.amendFrameCount(actualFrameCount);
+                    }
+                    vfssppWriter.finalizeFile();
+
+                }
+                catch (Exception e)
+                {
+                    failed = true;
+                    MessageBox.Show(e.Message);
+                }
+
+            });
+            if (failed)
+            {
+                return;
+            }
+            if (tooFewFramesDelivered > 0)
+            {
+
+                status_txt.Text = "Completed converting video to VFSSPP. Video reader delivered " + tooFewFramesDelivered + " fewer frame(s) than it announced. Consider redoing the input video.";
+            }
+            else
+            {
+                status_txt.Text = "Completed converting video to VFSSPP.";
+            }
+            vfssppExport_button.IsEnabled = true;
+        }
+
     }
 }
