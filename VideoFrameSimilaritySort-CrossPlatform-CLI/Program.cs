@@ -28,6 +28,15 @@ namespace VideoFrameSimilaritySort_CrossPlatform_CLI
         static async Task Main(string[] args)
         {
 
+            Console.WriteLine("System.Numerics.Vector.IsHardwareAccelerated: "+ System.Numerics.Vector.IsHardwareAccelerated);
+            Console.WriteLine("byte: " + Vector<byte>.Count +
+                ", sbyte: " + Vector<sbyte>.Count +
+                ", int:" + Vector<int>.Count +
+                ", float:" + Vector<float>.Count +
+                ", double:" + Vector<double>.Count +
+                ", long:" + Vector<long>.Count +
+                ", short:" + Vector<short>.Count);
+
 #if DEBUG
             args = new string[1] {"testateshsrhrsrsdh.vfsspp"};
 #endif
