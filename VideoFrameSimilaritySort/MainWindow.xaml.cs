@@ -698,7 +698,7 @@ namespace VideoFrameSimilaritySort
         }
 
         int audio2spectrum_sampleRate = 0;
-        double[] audio2spectrum_samples;
+        Int16[] audio2spectrum_samples;
         bool audio2spectrum_audioIsLoaded = false;
         private async Task audio2spectrum_loadAudioAsync(string path)
         {
@@ -714,7 +714,7 @@ namespace VideoFrameSimilaritySort
 
                 try
                 {
-                    (audio2spectrum_sampleRate, audio2spectrum_samples) = WavFile.ReadMono(path);
+                    (audio2spectrum_sampleRate, audio2spectrum_samples) = WavFileInt16Mod.ReadMono(path);
 
 
                 }
@@ -787,11 +787,11 @@ namespace VideoFrameSimilaritySort
                     frameCount = (long)totalFrameCount;
 
                     // Enlarge the array to make sure we don't end up accessing nonexisting samples. We make it a tiny bit bigger than maybe necessary, just to be safe. (To be honest, I am just too lazy to calculate the precise number we need)
-                    if((long)Math.Ceiling(frameCount  * samplesPerFrame) > audio2spectrum_samples.Length)
+                    /*if((long)Math.Ceiling(frameCount  * samplesPerFrame) > audio2spectrum_samples.Length)
                     {
                         progress.Report("Audio2Spectrum: Resizing array");
                         Array.Resize<double>(ref audio2spectrum_samples, (int)Math.Ceiling(frameCount * samplesPerFrame));
-                    }
+                    }*/
 
                     double[] frameSampleBuffer = new double[roundedSamplesPerFrame];
 
@@ -804,7 +804,21 @@ namespace VideoFrameSimilaritySort
                     for (int i = 0; i < frameCount; i++)
                     {
                         currentStartSample = (long) Math.Floor(i * samplesPerFrame);
-                        Array.Copy(audio2spectrum_samples, currentStartSample, frameSampleBuffer, 0, roundedSamplesPerFrame); // No need to worry about accessing too much at the end, since we resized the array before
+
+                        // Doing this branching here now because the resizing the array first was just way way too slow and memory hungry
+                        if(currentStartSample >= audio2spectrum_samples.Length) // Even the first sample is already outside the bounds, just make empty array.
+                        {
+                            frameSampleBuffer = new double[roundedSamplesPerFrame];
+                        } else if((currentStartSample+(roundedSamplesPerFrame-1)) > (audio2spectrum_samples.Length-1)) // Copy as many samples as possible
+                        {
+                            long difference = (currentStartSample + (roundedSamplesPerFrame - 1)) - (audio2spectrum_samples.Length - 1);
+                            frameSampleBuffer = new double[roundedSamplesPerFrame];
+                            Array.Copy(audio2spectrum_samples, currentStartSample, frameSampleBuffer, 0, roundedSamplesPerFrame- difference);
+                        }
+                        else
+                        {
+                            Array.Copy(audio2spectrum_samples, currentStartSample, frameSampleBuffer, 0, roundedSamplesPerFrame); 
+                        }
 
                         spec.Add(frameSampleBuffer);
                         tmp = spec.GetBitmapMel(dB: true,melBinCount: outputHeight);

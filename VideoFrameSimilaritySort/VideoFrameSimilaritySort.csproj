@@ -107,6 +107,7 @@
     <Compile Include="LinearAccessByteImage.cs" />
     <Compile Include="Vector3Image.cs" />
     <Compile Include="VFSSPPFile.cs" />
+    <Compile Include="WavFileInt16Mod.cs" />
     <Page Include="MainWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
