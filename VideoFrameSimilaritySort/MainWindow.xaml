@@ -26,7 +26,14 @@
                         <Label>Maximum threads</Label>
                         <TextBox x:Name="maxThreads" MinWidth="50">4</TextBox>
                     </WrapPanel>-->
-                    <Button x:Name="processVideo_button" Click="processVideo_button_Click" IsEnabled="False">Process video</Button>
+                    <GroupBox>
+                        <StackPanel>
+                            <WrapPanel>
+                                <Label>Past frames utilization: </Label>
+                                <TextBox MinWidth="50" TextAlignment="Right">0</TextBox></WrapPanel>
+                            <Button x:Name="processVideo_button" Click="processVideo_button_Click" IsEnabled="False">Process video</Button>
+                        </StackPanel>
+                    </GroupBox>
                     <Button x:Name="saveSortedVideo_button" Click="saveSortedVideo_button_Click" IsEnabled="False">Save processed video</Button>
                     <Button x:Name="saveSortedFrameList_button" Click="saveSortedFrameList_button_Click" IsEnabled="False">Save sorted frame list</Button>
                     <Button x:Name="processWAVFile_button" Click="processWAVFile_button_Click" IsEnabled="False">Process WAV file</Button>
