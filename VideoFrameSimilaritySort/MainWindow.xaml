@@ -30,7 +30,7 @@
                         <StackPanel>
                             <WrapPanel>
                                 <Label>Past frames utilization: </Label>
-                                <TextBox MinWidth="50" TextAlignment="Right">0</TextBox></WrapPanel>
+                                <TextBox MinWidth="50" TextAlignment="Right" x:Name="txtBackFrames">0</TextBox></WrapPanel>
                             <Button x:Name="processVideo_button" Click="processVideo_button_Click" IsEnabled="False">Process video</Button>
                         </StackPanel>
                     </GroupBox>

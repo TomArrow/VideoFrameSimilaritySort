@@ -1,26 +1,15 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using Accord.Video.FFMPEG;
+using Microsoft.Win32;
+using Spectrogram;
+using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.IO;
-using System.Linq;
 using System.Numerics;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
-using Accord.Video.FFMPEG;
-using Microsoft.Win32;
-using Spectrogram;
 using Vector = System.Numerics.Vector;
 
 namespace VideoFrameSimilaritySort
@@ -175,7 +164,7 @@ namespace VideoFrameSimilaritySort
 
         }
 
-        private async Task processVideo()
+        private async Task processVideo(int backFrames=0)
         {
 
             //int maxThreads = 
@@ -233,6 +222,11 @@ namespace VideoFrameSimilaritySort
                 int maxCompletionPortThreads = 0;
                 ThreadPool.GetMaxThreads(out maxWorkers, out maxCompletionPortThreads);
 
+                int[] currentFrames = new int[backFrames + 1];
+                for(int i = 0; i < currentFrames.Length; i++)
+                {
+                    currentFrames[i] = -1; // backframes marked with -1 will just be ignored.
+                }
 
                 progress.Report("Starting processing of " + frameCount + " frames with up to " + maxWorkers + "(workers)/" + maxCompletionPortThreads + "(IO) ...");
 #if DEBUG
@@ -248,6 +242,13 @@ namespace VideoFrameSimilaritySort
                     double smallestDifference = double.PositiveInfinity;
                     int smallestDifferenceFrame = -1;
 
+                    for (int i = currentFrames.Length-1; i > 0; i--) // Move all previous currentframes by 1.
+                    {
+                        currentFrames[i] = currentFrames[i-1]; 
+                    }
+                    currentFrames[0] = currentFrame; // Then set first one to current frame.
+                    int compareFrameCount = Math.Min(currentIndex+1,currentFrames.Length); // Tells how many are being compared, so we can divide properly.
+                    int pixelCountX3TimesCompareFrameCount = pixelCountX3 * compareFrameCount;
                     //currentFrameData = new Vector3Image(loadedVideo[currentFrame]);
                     //ParallelOptions options = new ParallelOptions();
                     //options.MaxDegreeOfParallelism = 4;
@@ -282,39 +283,48 @@ namespace VideoFrameSimilaritySort
 
                         int i, a;
                         int donePixelsPerVectorElement = 0;
-                        for (i = 0; i < oneFrameTotalLength; i += elementsPerTwoVectors)
-                        {
 
-                            Vector.Widen(new Vector<sbyte>(loadedVideo[currentFrame].imageData, i), out currentFramePixel, out currentFramePixel2);
-                            Vector.Widen(new Vector<sbyte>(loadedVideo[compareFrame].imageData, i), out compareFramePixel, out compareFramePixel2);
-                            thisFrameRGBDifference += Vector.Abs<short>(currentFramePixel - compareFramePixel);
-                            thisFrameRGBDifference += Vector.Abs<short>(currentFramePixel2 - compareFramePixel2);
+                        foreach(int currentFrameTmp in currentFrames) { // This is now a loop because we want to compare to more than just the current frame, also past ones.
 
-                            // Danger: XOR fuckery
-                            //tmpDiff = currentFramePixel - compareFramePixel;
-                            //(tmpDiff ^ (tmpDiff >> 31)) - (tmpDiff >> 31);
-                            // /Danger XOR fuckery over
+                            if (currentFrameTmp == -1) continue; // Let's say we compare to 5 past frames, but it's only 2 frames into the video. Then the array will have empty places. Those just get -1 assigned as start value.
 
-
-                            donePixelsPerVectorElement += 2;
-
-                            if(donePixelsPerVectorElement >= (maxDifferencesPerVector - 2))
+                            for (i = 0; i < oneFrameTotalLength; i += elementsPerTwoVectors)
                             {
 
-                                for(a = 0; a < elementsPerVector; a++)
+                                Vector.Widen(new Vector<sbyte>(loadedVideo[currentFrameTmp].imageData, i), out currentFramePixel, out currentFramePixel2);
+                                Vector.Widen(new Vector<sbyte>(loadedVideo[compareFrame].imageData, i), out compareFramePixel, out compareFramePixel2);
+                                thisFrameRGBDifference += Vector.Abs<short>(currentFramePixel - compareFramePixel);
+                                thisFrameRGBDifference += Vector.Abs<short>(currentFramePixel2 - compareFramePixel2);
+
+                                // Danger: XOR fuckery
+                                //tmpDiff = currentFramePixel - compareFramePixel;
+                                //(tmpDiff ^ (tmpDiff >> 31)) - (tmpDiff >> 31);
+                                // /Danger XOR fuckery over
+
+
+                                donePixelsPerVectorElement += 2;
+
+                                if(donePixelsPerVectorElement >= (maxDifferencesPerVector - 2))
                                 {
-                                    thisFrameDifference += thisFrameRGBDifference[a];
+
+                                    for(a = 0; a < elementsPerVector; a++)
+                                    {
+                                        thisFrameDifference += thisFrameRGBDifference[a];
+                                    }
+                                    donePixelsPerVectorElement = 0;
+                                    //if (thisFrameDifference / pixelCountX3 > smallestDifferenceImpreciseOpt) break;
+                                    if (thisFrameDifference / pixelCountX3TimesCompareFrameCount > smallestDifferenceImpreciseOpt) goto loopBroken;
+                                    thisFrameRGBDifference = new Vector<short>(0);
                                 }
-                                donePixelsPerVectorElement = 0;
-                                if (thisFrameDifference / pixelCountX3 > smallestDifferenceImpreciseOpt) break;
-                                thisFrameRGBDifference = new Vector<short>(0);
+                                /*for(a=0; a < elementsPerVector; a++)
+                                {
+                                    currentFramePixel.Item[]
+                                }*/
                             }
-                            /*for(a=0; a < elementsPerVector; a++)
-                            {
-                                currentFramePixel.Item[]
-                            }*/
                         }
-                        if(donePixelsPerVectorElement > 0)
+                        loopBroken:
+
+                        if (donePixelsPerVectorElement > 0)
                         {
                             for (a = 0; a < elementsPerVector; a++)
                             {
@@ -345,7 +355,8 @@ namespace VideoFrameSimilaritySort
                             if (thisFrameDifference / pixelCountX3 > smallestDifferenceImpreciseOpt) break; // fast skip for very different frames. Since this is multithreaded, this might not always be correct in the sense of always having the right number in smallestDifference, but might work as optimization.
                         }
                         thisFrameDifference = thisFrameRGBDifference.X + thisFrameRGBDifference.Y + thisFrameRGBDifference.Z;*/
-                        frameDifferences[compareFrame] = thisFrameDifference / pixelCountX3;
+                        frameDifferences[compareFrame] = thisFrameDifference / pixelCountX3TimesCompareFrameCount;
+                        
                         if (frameDifferences[compareFrame] < smallestDifferenceImpreciseOpt)
                         {
                             smallestDifferenceImpreciseOpt = frameDifferences[compareFrame];
@@ -631,7 +642,9 @@ namespace VideoFrameSimilaritySort
             loadVideo_button.IsEnabled = false;
             saveSortedFrameList_button.IsEnabled = false;
             saveSortedVideo_button.IsEnabled = false;
-            processVideo();
+            int backFrames = 0;
+            int.TryParse(txtBackFrames.Text,out backFrames);
+            processVideo(backFrames);
         }
 
         private void saveSortedVideo_button_Click(object sender, RoutedEventArgs e)
