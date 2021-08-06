@@ -164,9 +164,14 @@ namespace VideoFrameSimilaritySort
 
         }
 
-        private async Task processVideo(int backFrames=0)
+        private async Task processVideo(int backFrames=0,bool firstFrameCompareOnly = false)
         {
 
+            // We have a quicker solution for you bucko!
+            if(firstFrameCompareOnly && backFrames == 0)
+            {
+
+            }
             //int maxThreads = 
 
             var progressHandler = new Progress<ProcessingProgressReport>(value =>
@@ -223,6 +228,7 @@ namespace VideoFrameSimilaritySort
                 ThreadPool.GetMaxThreads(out maxWorkers, out maxCompletionPortThreads);
 
                 int[] currentFrames = new int[backFrames + 1];
+                int[] currentFramesActual = new int[backFrames + 1];
                 for(int i = 0; i < currentFrames.Length; i++)
                 {
                     currentFrames[i] = -1; // backframes marked with -1 will just be ignored.
@@ -247,7 +253,13 @@ namespace VideoFrameSimilaritySort
                         currentFrames[i] = currentFrames[i-1]; 
                     }
                     currentFrames[0] = currentFrame; // Then set first one to current frame.
-                    int compareFrameCount = Math.Min(currentIndex+1,currentFrames.Length); // Tells how many are being compared, so we can divide properly.
+                    currentFramesActual = (int[])currentFrames.Clone();
+                    if (firstFrameCompareOnly)
+                    {
+                        currentFramesActual[0] = 0; // We need this separate second array because we want to potentially keep the back frame comparison, but also allow to always have the first frame be always 0 without propagating to the "back" positions
+                    }
+
+                    int compareFrameCount = Math.Min(currentIndex+1,currentFramesActual.Length); // Tells how many are being compared, so we can divide properly.
                     int pixelCountX3TimesCompareFrameCount = pixelCountX3 * compareFrameCount;
                     //currentFrameData = new Vector3Image(loadedVideo[currentFrame]);
                     //ParallelOptions options = new ParallelOptions();
@@ -284,7 +296,7 @@ namespace VideoFrameSimilaritySort
                         int i, a;
                         int donePixelsPerVectorElement = 0;
 
-                        foreach(int currentFrameTmp in currentFrames) { // This is now a loop because we want to compare to more than just the current frame, also past ones.
+                        foreach(int currentFrameTmp in currentFramesActual) { // This is now a loop because we want to compare to more than just the current frame, also past ones.
 
                             if (currentFrameTmp == -1) continue; // Let's say we compare to 5 past frames, but it's only 2 frames into the video. Then the array will have empty places. Those just get -1 assigned as start value.
 
@@ -541,6 +553,7 @@ namespace VideoFrameSimilaritySort
                 status_txt.Text = "Completed loading video.";
             }
             videoIsLoaded = true;
+            replaceFirstFrame_button.IsEnabled = true;
             processVideo_button.IsEnabled = true;
             saveSortedVideo_button.IsEnabled = false;
             saveSortedFrameList_button.IsEnabled = false;
@@ -644,7 +657,7 @@ namespace VideoFrameSimilaritySort
             saveSortedVideo_button.IsEnabled = false;
             int backFrames = 0;
             int.TryParse(txtBackFrames.Text,out backFrames);
-            processVideo(backFrames);
+            processVideo(backFrames,firstFrameCompareOnly_check.IsChecked == true);
         }
 
         private void saveSortedVideo_button_Click(object sender, RoutedEventArgs e)
@@ -1042,5 +1055,43 @@ namespace VideoFrameSimilaritySort
             vfssppExport_button.IsEnabled = true;
         }
 
+        private void replaceFirstFrame(string filename)
+        {
+            if(loadedVideo == null || loadedVideo.Length == 0)
+            {
+                MessageBox.Show("Error replacing frame: No proper reference video loaded yet?");
+                return;
+            }
+            LinearAccessByteImage referenceFrame = loadedVideo[0];
+            LinearAccessByteImage loadedFrame = null;
+            try
+            {
+                loadedFrame = Helpers.BitmapToLinearAccessByteArray((Bitmap)Bitmap.FromFile(filename));
+            } catch (Exception e)
+            {
+                MessageBox.Show("Error while loading replacement frame: "+e.Message);
+                return;
+            }
+            if(loadedFrame.width == referenceFrame.width && loadedFrame.width == referenceFrame.width && loadedFrame.pixelFormat == referenceFrame.pixelFormat)
+            {
+                loadedVideo[0] = loadedFrame;
+                status_txt.Text = "Successfully replaced first frame with loaded image.";
+            } else
+            {
+                MessageBox.Show("First frame can only be replaced with a compatible frame: Same width, height and pixel format.");
+            }
+
+        }
+
+        private void ReplaceFirstFrame_Click(object sender, RoutedEventArgs e)
+        {
+            OpenFileDialog ofd = new OpenFileDialog();
+            if (ofd.ShowDialog() == true)
+            {
+
+                replaceFirstFrame(ofd.FileName);
+
+            }
+        }
     }
 }

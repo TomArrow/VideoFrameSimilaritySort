@@ -28,10 +28,12 @@
                     </WrapPanel>-->
                     <GroupBox>
                         <StackPanel>
+                            <Button x:Name="replaceFirstFrame_button" IsEnabled="False" Click="ReplaceFirstFrame_Click">Replace first frame</Button>
                             <WrapPanel>
                                 <Label>Past frames utilization: </Label>
                                 <TextBox MinWidth="50" TextAlignment="Right" x:Name="txtBackFrames">0</TextBox></WrapPanel>
                             <Button x:Name="processVideo_button" Click="processVideo_button_Click" IsEnabled="False">Process video</Button>
+                            <CheckBox x:Name="firstFrameCompareOnly_check">Compare to first frame instead of previous frame</CheckBox>
                         </StackPanel>
                     </GroupBox>
                     <Button x:Name="saveSortedVideo_button" Click="saveSortedVideo_button_Click" IsEnabled="False">Save processed video</Button>
