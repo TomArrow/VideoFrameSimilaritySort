@@ -231,93 +231,79 @@ namespace VideoFrameSimilaritySort
 
                 bool comparisonsDone = false;
 
+
+                Parallel.For(0, frameCount, (compareFrame) =>
+                {
+                    //File.WriteAllText(compareFrame + ".txt", ""); // debug
+
+
+                    frameDifferences[compareFrame] = double.PositiveInfinity;
+                    if (compareFrame == currentFrame) return; // No need to compare to itself.
+                                                              //if (alreadyUsedFrames[compareFrame] == true) return; // No need to go through already used frames
+
+                    double thisFrameDifference = 0;
+                    /*Vector3 thisFrameRGBDifference = new Vector3() { X = 0, Y = 0, Z = 0 };
+                    Vector3 currentFramePixel = new Vector3() { X = 0, Y = 0, Z = 0 };
+                    Vector3 compareFramePixel = new Vector3() { X = 0, Y = 0, Z = 0 };*/
+                    Vector<short> thisFrameRGBDifference = new Vector<short>(0);
+                    Vector<short> currentFramePixel = new Vector<short>();
+                    Vector<short> currentFramePixel2 = new Vector<short>();
+                    Vector<short> compareFramePixel = new Vector<short>();
+                    Vector<short> compareFramePixel2 = new Vector<short>();
+
+                    //Vector<short> tmpDiff = new Vector<short>();
+
+
+                    // Calculate difference
+                    int baseIndex;
+                    //int pixelOffsetBase;
+
+                    int i, a;
+                    int donePixelsPerVectorElement = 0;
+
+                    for (i = 0; i < oneFrameTotalLength; i += elementsPerTwoVectors)
+                    {
+
+                        Vector.Widen(new Vector<sbyte>(loadedVideo[currentFrame].imageData, i), out currentFramePixel, out currentFramePixel2);
+                        Vector.Widen(new Vector<sbyte>(loadedVideo[compareFrame].imageData, i), out compareFramePixel, out compareFramePixel2);
+                        thisFrameRGBDifference += Vector.Abs<short>(currentFramePixel - compareFramePixel);
+                        thisFrameRGBDifference += Vector.Abs<short>(currentFramePixel2 - compareFramePixel2);
+
+                        donePixelsPerVectorElement += 2;
+
+                        if (donePixelsPerVectorElement >= (maxDifferencesPerVector - 2))
+                        {
+
+                            for (a = 0; a < elementsPerVector; a++)
+                            {
+                                thisFrameDifference += thisFrameRGBDifference[a];
+                            }
+                            donePixelsPerVectorElement = 0;
+                            //if (thisFrameDifference / pixelCountX3 > smallestDifferenceImpreciseOpt) break; // Not doing this in first frame compare mode bc we're comparing ALL frames fully and then sorting.
+                            thisFrameRGBDifference = new Vector<short>(0);
+                        }
+                    }
+
+                    if (donePixelsPerVectorElement > 0)
+                    {
+                        for (a = 0; a < elementsPerVector; a++)
+                        {
+                            thisFrameDifference += thisFrameRGBDifference[a];
+                        }
+                    }
+                    frameDifferences[compareFrame] = thisFrameDifference / pixelCountX3;
+
+
+                });
+
+                int framesPerUpdate = 100;
+
                 for (int currentIndex = 0; currentIndex < frameCount; currentIndex++)
                 {// not to confuse with current frame. We're just tracking our progress here.
 
 
                     double smallestDifference = double.PositiveInfinity;
                     int smallestDifferenceFrame = -1;
-
-
-                    //currentFrameData = new Vector3Image(loadedVideo[currentFrame]);
-                    //ParallelOptions options = new ParallelOptions();
-                    //options.MaxDegreeOfParallelism = 4;
-
-                    double smallestDifferenceImpreciseOpt = double.PositiveInfinity;
-
-
-                    if (!comparisonsDone) { 
-                        // Go through all frames, comparing them to the current frame
-                        Parallel.For(0, frameCount, (compareFrame) =>
-                        {
-                            //File.WriteAllText(compareFrame + ".txt", ""); // debug
-
-
-                            frameDifferences[compareFrame] = double.PositiveInfinity;
-                            if (compareFrame == currentFrame) return; // No need to compare to itself.
-                            //if (alreadyUsedFrames[compareFrame] == true) return; // No need to go through already used frames
-
-                            double thisFrameDifference = 0;
-                            /*Vector3 thisFrameRGBDifference = new Vector3() { X = 0, Y = 0, Z = 0 };
-                            Vector3 currentFramePixel = new Vector3() { X = 0, Y = 0, Z = 0 };
-                            Vector3 compareFramePixel = new Vector3() { X = 0, Y = 0, Z = 0 };*/
-                            Vector<short> thisFrameRGBDifference = new Vector<short>(0);
-                            Vector<short> currentFramePixel = new Vector<short>();
-                            Vector<short> currentFramePixel2 = new Vector<short>();
-                            Vector<short> compareFramePixel = new Vector<short>();
-                            Vector<short> compareFramePixel2 = new Vector<short>();
-
-                            //Vector<short> tmpDiff = new Vector<short>();
-
-
-                            // Calculate difference
-                            int baseIndex;
-                            //int pixelOffsetBase;
-
-                            int i, a;
-                            int donePixelsPerVectorElement = 0;
-
-                            for (i = 0; i < oneFrameTotalLength; i += elementsPerTwoVectors)
-                            {
-
-                                Vector.Widen(new Vector<sbyte>(loadedVideo[currentFrame].imageData, i), out currentFramePixel, out currentFramePixel2);
-                                Vector.Widen(new Vector<sbyte>(loadedVideo[compareFrame].imageData, i), out compareFramePixel, out compareFramePixel2);
-                                thisFrameRGBDifference += Vector.Abs<short>(currentFramePixel - compareFramePixel);
-                                thisFrameRGBDifference += Vector.Abs<short>(currentFramePixel2 - compareFramePixel2);
-
-                                donePixelsPerVectorElement += 2;
-
-                                if (donePixelsPerVectorElement >= (maxDifferencesPerVector - 2))
-                                {
-
-                                    for (a = 0; a < elementsPerVector; a++)
-                                    {
-                                        thisFrameDifference += thisFrameRGBDifference[a];
-                                    }
-                                    donePixelsPerVectorElement = 0;
-                                    //if (thisFrameDifference / pixelCountX3 > smallestDifferenceImpreciseOpt) break; // Not doing this in first frame compare mode bc we're comparing ALL frames fully and then sorting.
-                                    thisFrameRGBDifference = new Vector<short>(0);
-                                }
-                            }
-
-                            if (donePixelsPerVectorElement > 0)
-                            {
-                                for (a = 0; a < elementsPerVector; a++)
-                                {
-                                    thisFrameDifference += thisFrameRGBDifference[a];
-                                }
-                            }
-                            frameDifferences[compareFrame] = thisFrameDifference / pixelCountX3;
-
-                            if (frameDifferences[compareFrame] < smallestDifferenceImpreciseOpt)
-                            {
-                                smallestDifferenceImpreciseOpt = frameDifferences[compareFrame];
-                            }
-
-                        });
-                        comparisonsDone = true;
-                    }
-
 
 
                     for (int compareFrame = 0; compareFrame < frameCount; compareFrame++)
@@ -330,20 +316,27 @@ namespace VideoFrameSimilaritySort
                     }
 
 
-                    //Stats
-                    fps[currentIndex] = 1 / ((float)stopWatch.ElapsedTicks / (float)Stopwatch.Frequency);
-                    if (fps[currentIndex] < lowestFPS) lowestFPS = fps[currentIndex];
-                    if (fps[currentIndex] > highestFPS) highestFPS = fps[currentIndex];
                     smallestDifferences[currentIndex] = (float)smallestDifference;
                     if (smallestDifference < smallestSmallestDifference) smallestSmallestDifference = smallestDifferences[currentIndex];
                     if (smallestDifference > highestSmallestDifference && smallestDifference != double.PositiveInfinity) highestSmallestDifference = smallestDifferences[currentIndex];
-                    progressReport.drawStats = currentIndex % 10000 == 0; // Only after 100 processed frames draw stats, to not have a notable performance impact
-                    stopWatch.Restart();
 
-                    // Status update
-                    progressReport.message = "Processing: " + currentIndex + "/" + frameCount + " ordered frames. Current frame is " + currentFrame + ", last smallest difference was " + smallestDifference;
-                    progressReport.currentIndex = currentIndex;
-                    progress.Report(progressReport);
+
+                    if (currentIndex % framesPerUpdate == 0)
+                    {
+                        //Stats
+                        fps[currentIndex] = framesPerUpdate* 1 / ((float)stopWatch.ElapsedTicks / (float)Stopwatch.Frequency);
+                        if (fps[currentIndex] < lowestFPS) lowestFPS = fps[currentIndex];
+                        if (fps[currentIndex] > highestFPS) highestFPS = fps[currentIndex];
+                        progressReport.drawStats = currentIndex % (framesPerUpdate*10) == 0; // Only after 100 processed frames draw stats, to not have a notable performance impact
+                        stopWatch.Restart();
+
+                        // Status update
+                        progressReport.message = "Processing: " + currentIndex + "/" + frameCount + " ordered frames. Current frame is " + currentFrame + ", last smallest difference was " + smallestDifference;
+                        progressReport.currentIndex = currentIndex;
+                        progress.Report(progressReport);
+                    }
+                    fps[currentIndex] = fps[currentIndex/framesPerUpdate*framesPerUpdate];
+
 
                     if (smallestDifferenceFrame != -1)
                     {
@@ -380,6 +373,7 @@ namespace VideoFrameSimilaritySort
             if(firstFrameCompareOnly && backFrames == 0)
             {
                 await processVideoFirstFrameNoBackFrame();
+                return;
             }
             //int maxThreads = 
 
